@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.python-version.local
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ML: data, models, artifacts
+ml/data/raw/
+ml/data/processed/
+ml/outputs/
+ml/checkpoints/
+ml/wandb/
+ml/runs/
+lightning_logs/
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.gguf
+*.ckpt
+*.onnx
+.cache/
+huggingface/
+
+# Vector DB / local databases
+qdrant_storage/
+*.sqlite
+*.sqlite3
+*.db
+
+# Frontend
+node_modules/
+.nuxt/
+.output/
+.next/
+.nitro/
+.cache/
+.turbo/
+frontend/dist/
+.vercel/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Fly.io
+.fly/
+
+# Docker
+docker-compose.override.yml
+
+# IDE and OS
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.log
