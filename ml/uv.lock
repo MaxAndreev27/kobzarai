@@ -963,8 +963,10 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "accelerate" },
+    { name = "beautifulsoup4" },
     { name = "datasets" },
     { name = "peft" },
+    { name = "requests" },
     { name = "torch", version = "2.15.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
     { name = "torch", version = "2.15.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
     { name = "transformers" },
@@ -981,8 +983,10 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "accelerate", specifier = ">=1.15.0" },
+    { name = "beautifulsoup4", specifier = ">=4.15.0" },
     { name = "datasets", specifier = ">=5.1.0" },
     { name = "peft", specifier = ">=0.21.2" },
+    { name = "requests", specifier = ">=2.34.2" },
     { name = "torch", specifier = ">=2.15.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "transformers", specifier = ">=5.22.1" },
     { name = "trl", specifier = ">=1.17.1" },

@@ -4,8 +4,10 @@ version = "0.1.0"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "accelerate>=1.15.0",
+    "beautifulsoup4>=4.15.0",
     "datasets>=5.1.0",
     "peft>=0.21.2",
+    "requests>=2.34.2",
     "torch>=2.15.0",
     "transformers>=5.22.1",
     "trl>=1.17.1",
