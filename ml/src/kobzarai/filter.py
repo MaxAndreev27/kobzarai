@@ -16,6 +16,8 @@ MAX_RU_PER_1000 = 5  # літери ы/э/ъ/ё на 1000 літер: ознак
 MIN_UK_PER_1000 = 15  # літери і/ї/є/ґ на 1000 літер: ознака українського тексту
 MIN_LINES = 4
 MIN_DEDUP_LINE = 15  # коротші рядки (рефрени, «Амінь») не вважаємо дублікатами
+MAX_CONTAINED = 0.8  # частка рядків тексту, за якої він вважається частиною іншого
+MIN_CONTAINED_LINES = 5  # менше рядків для порівняння недостатньо
 MIN_REST_RUN = 8  # мінімум рядків в уривку збірника, якого немає в окремих творах
 FIRST_POEM = "ПРИЧИННА"  # заголовок першого вірша збірника: до нього йде зміст
 MIN_CHARS = 150  # коротші уривки не дають достатньо матеріалу для стилю
@@ -171,7 +173,38 @@ def collection_rest(collection: dict, others: list[dict]) -> dict:
     return {**collection, "title": REST_TITLE, "text": "\n\n".join(runs)}
 
 
-def build() -> list[dict]:
+def line_set(text: str) -> set[str]:
+    return {
+        line_key(line)
+        for line in text.split("\n")
+        if len(line.strip()) >= MIN_DEDUP_LINE
+    }
+
+
+def drop_contained(poems: list[dict]) -> tuple[list[dict], list[tuple[str, str]]]:
+    """Видаляє тексти, більшість рядків яких міститься в іншому, більшому тексті.
+
+    Так прибираються глави поеми, що лежать і окремо, і всередині неї («Гайдамаки»),
+    та вірші з циклів («В казематі»). Повертає тексти й пари (видалений, власник).
+    """
+    sets = [line_set(p["text"]) for p in poems]
+    order = sorted(range(len(poems)), key=lambda i: (len(sets[i]), i))
+    removed: dict[int, int] = {}
+    for pos, i in enumerate(order):
+        if len(sets[i]) < MIN_CONTAINED_LINES:
+            continue
+        for j in order[pos + 1 :]:
+            if j in removed:
+                continue
+            if len(sets[i] & sets[j]) / len(sets[i]) > MAX_CONTAINED:
+                removed[i] = j
+                break
+    kept = [p for i, p in enumerate(poems) if i not in removed]
+    report = [(poems[i]["title"], poems[j]["title"]) for i, j in removed.items()]
+    return kept, report
+
+
+def build() -> tuple[list[dict], list[tuple[str, str]]]:
     corpus = read_jsonl(IN_PATH)
     collection = next(r for r in corpus if r["title"] == COLLECTION_TITLE)
     others = [r for r in corpus if r is not collection]
@@ -188,12 +221,12 @@ def build() -> list[dict]:
         meta["genre"] = guess_genre(text, meta)
         if len(non_empty_lines(text)) >= MIN_LINES and len(text) >= MIN_CHARS:
             poems.append({**r, "text": text, **meta})
-    return poems
+    return drop_contained(poems)
 
 
 def main() -> None:
     corpus = read_jsonl(IN_PATH)
-    poems = build()
+    poems, duplicates = build()
     kept = {p["id"] for p in poems}
     with OUT_PATH.open("w", encoding="utf-8") as f:
         for p in poems:
@@ -202,7 +235,12 @@ def main() -> None:
     print(f"Вхід: {len(corpus)} текстів, вихід: {len(poems)} віршів, {chars} символів")
     years = [p["year"] for p in poems if p["year"]]
     print(f"Рік визначено для {len(years)} із {len(poems)}")
-    print("Відкинуто:", sorted(r["title"] for r in corpus if r["id"] not in kept))
+    print(f"Видалено як частини інших текстів: {len(duplicates)}")
+    for title, owner in duplicates:
+        print(f"  {title}  ⊂  {owner}")
+    print(
+        "Відкинуто фільтром:", sorted(r["title"] for r in corpus if r["id"] not in kept)
+    )
     print(f"-> {OUT_PATH}")
 
 
