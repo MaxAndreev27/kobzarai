@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import requests
+import retrieval
 
 DATASET = Path(__file__).with_name("chat_uk.jsonl")
 API = "http://127.0.0.1:11434/api"
@@ -32,6 +33,8 @@ def main() -> int:
     parser.add_argument("--limit", type=int)
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--device", choices=("cpu", "gpu"), default="cpu")
+    parser.add_argument("--rag", action="store_true", help="Find works by title")
+    parser.add_argument("--case-id", action="append", help="Select development case")
     args = parser.parse_args()
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be positive")
@@ -43,10 +46,19 @@ def main() -> int:
         json.loads(line) for line in data.decode("utf-8").splitlines() if line.strip()
     ]
     cases = [case for case in cases if case["split"] == "development"]
+    if args.case_id:
+        unknown = set(args.case_id) - {case["id"] for case in cases}
+        if unknown:
+            parser.error(
+                f"Unknown or non-development case IDs: {', '.join(sorted(unknown))}"
+            )
+        cases = [case for case in cases if case["id"] in args.case_id]
     if args.limit is not None:
         cases = cases[: args.limit]
     if not cases:
         raise ValueError("No development cases found")
+    corpus_data = retrieval.CORPUS.read_bytes() if args.rag else None
+    corpus = retrieval.load_corpus(corpus_data) if corpus_data is not None else None
 
     version_response = requests.get(f"{API}/version", timeout=10)
     version_response.raise_for_status()
@@ -82,13 +94,44 @@ def main() -> int:
         "options": options,
         "requested_device": args.device,
         "think": False,
-        "rag": False,
+        "rag": args.rag,
+        "corpus_sha256": (
+            hashlib.sha256(corpus_data).hexdigest() if corpus_data is not None else None
+        ),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x", encoding="utf-8") as output:
         write_record(output, metadata)
         for index, case in enumerate(cases, 1):
             messages = [{"role": "system", "content": SYSTEM_PROMPT}, *case["messages"]]
+            retrieval_info: dict[str, int | str] | None = None
+            if corpus is not None:
+                status, work = retrieval.find_work(
+                    case["messages"][-1]["content"], corpus
+                )
+                retrieval_info = {"status": status}
+                if work is not None:
+                    fragment = retrieval.excerpt(work)
+                    retrieval_info.update(
+                        {
+                            "id": work["id"],
+                            "title": work["title"],
+                            "source": work["source"],
+                            "start_char": 0,
+                            "end_char": len(fragment),
+                        }
+                    )
+                    messages[-1] = {
+                        "role": "user",
+                        "content": retrieval.add_context(messages[-1]["content"], work),
+                    }
+                else:
+                    messages[-1] = {
+                        "role": "user",
+                        "content": retrieval.add_lookup_warning(
+                            messages[-1]["content"], status
+                        ),
+                    }
             payload = {
                 "model": args.model,
                 "messages": messages,
@@ -110,6 +153,7 @@ def main() -> int:
                         "case": case,
                         "messages": messages,
                         "error": str(exc),
+                        "retrieval": retrieval_info,
                     },
                 )
                 print(
@@ -132,6 +176,7 @@ def main() -> int:
                         "messages": messages,
                         "error": "Invalid, incomplete, or empty Ollama response",
                         "response": result,
+                        "retrieval": retrieval_info,
                     },
                 )
                 print(
@@ -161,6 +206,7 @@ def main() -> int:
                             "messages": messages,
                             "error": f"Could not verify GPU placement: {exc}",
                             "response": result,
+                            "retrieval": retrieval_info,
                         },
                     )
                     print(f"Could not verify GPU placement: {exc}", file=sys.stderr)
@@ -175,6 +221,7 @@ def main() -> int:
                             "error": "Ollama did not report GPU memory for this model",
                             "response": result,
                             "placement": placement,
+                            "retrieval": retrieval_info,
                         },
                     )
                     print("GPU placement not confirmed; stopping", file=sys.stderr)
@@ -187,6 +234,7 @@ def main() -> int:
                     "messages": messages,
                     "response": result,
                     "placement": placement,
+                    "retrieval": retrieval_info,
                 },
             )
             reason = result.get("done_reason", "unknown")

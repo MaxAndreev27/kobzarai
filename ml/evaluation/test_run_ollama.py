@@ -123,6 +123,73 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(records[1]["type"], "error")
             self.assertIn("GPU memory", records[1]["error"])
 
+    def test_rag_selected_case_uses_query_not_expected_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            output = directory / "results.jsonl"
+            dataset = directory / "cases.jsonl"
+            corpus = directory / "corpus.jsonl"
+            case = {
+                "id": "test-01",
+                "split": "development",
+                "messages": [{"role": "user", "content": "Про поему «Катерина»?"}],
+                "source_ids": [999],
+            }
+            dataset.write_text(json.dumps(case, ensure_ascii=False), encoding="utf-8")
+            corpus.write_text(
+                json.dumps(
+                    {
+                        "id": 1,
+                        "title": "Катерина",
+                        "text": "Текст твору.",
+                        "source": "https://example.org/1",
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            response = Response({"done": True, "message": {"content": "Відповідь."}})
+            with (
+                patch.object(run_ollama, "DATASET", dataset),
+                patch.object(run_ollama.retrieval, "CORPUS", corpus),
+                patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "run_ollama.py",
+                        "--rag",
+                        "--case-id",
+                        "test-01",
+                        "--output",
+                        str(output),
+                    ],
+                ),
+                patch.object(
+                    run_ollama.requests,
+                    "get",
+                    side_effect=[
+                        Response({"version": "test"}),
+                        Response(
+                            {"models": [{"name": "qwen3:1.7b", "digest": "test"}]}
+                        ),
+                    ],
+                ),
+                patch.object(
+                    run_ollama.requests, "post", return_value=response
+                ) as post,
+            ):
+                status = run_ollama.main()
+            metadata, result = [
+                json.loads(line)
+                for line in output.read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertEqual(status, 0)
+            self.assertTrue(metadata["rag"])
+            self.assertEqual(result["retrieval"]["id"], 1)
+            self.assertIn(
+                "Текст твору.", post.call_args.kwargs["json"]["messages"][-1]["content"]
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
