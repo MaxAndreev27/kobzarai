@@ -237,10 +237,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--validation", type=Path, default=VALIDATION)
+    parser.add_argument("--corpus", type=Path, default=retrieval.CORPUS)
     args = parser.parse_args()
     if args.output.exists():
         raise FileExistsError(f"Output already exists: {args.output}")
-    corpus_data = retrieval.CORPUS.read_bytes()
+    corpus_data = args.corpus.read_bytes()
     corpus = retrieval.load_corpus(corpus_data)
     chunks = retrieval.build_chunks(corpus)
     training_data, training = load_cases(comparison.CASES, chunks)

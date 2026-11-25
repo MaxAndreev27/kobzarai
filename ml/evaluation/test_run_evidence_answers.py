@@ -142,6 +142,8 @@ class EvidenceAnswerTests(unittest.TestCase):
                 str(report_path),
                 "--cases",
                 str(cases_path),
+                "--corpus",
+                str(corpus_path),
                 "--baseline",
                 str(baseline_path),
                 "--output",

@@ -1,0 +1,12 @@
+{"id":"followup-dolia-truth","query":"Чого немає за героями вірша «Доля»?","work_id":3992,"evidence":"Зерна неправди за собою.","answerable":true}
+{"id":"followup-dumy-destination","query":"Куди поет посилає своїх дум-дітей у «Думи мої, думи мої»?","work_id":735,"evidence":"В Україну ідіть, діти!\nВ нашу Україну,","answerable":true}
+{"id":"followup-kavkaz-friend","query":"Як звати друга, до якого звертається поет наприкінці «Кавказу»?","work_id":741,"evidence":"Мій Якове добрий!","answerable":true}
+{"id":"followup-topolia-transformation","query":"На що перетворилася дівчина у «Тополі»?","work_id":784,"evidence":"І на диво серед поля\nТополею стала.","answerable":true}
+{"id":"followup-prychynna-wolves","query":"Що вовки зробили з тілом козака в «Причинній»?","work_id":774,"evidence":"Біле тіло вовки з'їли","answerable":true}
+{"id":"followup-mohyla-river","query":"Яку річку Україна називає братом у «Розритій могилі»?","work_id":23446,"evidence":"Дніпро, брат мій, висихає,","answerable":true}
+{"id":"followup-no-dolia-teacher-name","query":"Яке прізвище дяка, до якого водили хлопця у вірші «Доля»?","work_id":3992,"answerable":false}
+{"id":"followup-no-dumy-name","query":"Як звали дівчину, яка плаче над думами у «Думи мої, думи мої»?","work_id":735,"answerable":false}
+{"id":"followup-no-prychynna-place","query":"У якому селі народилася ворожка у «Причинній»?","work_id":774,"answerable":false}
+{"id":"followup-no-kavkaz-eagle-name","query":"Як звати орла, що карає Прометея у «Кавказі»?","work_id":741,"answerable":false}
+{"id":"followup-title-unknown","query":"Про що поема «Небесна фортеця з бурштину»?","expected_status":"not_found"}
+{"id":"followup-title-multiple","query":"Порівняй «Тополя» та «Заповіт».","expected_status":"ambiguous"}

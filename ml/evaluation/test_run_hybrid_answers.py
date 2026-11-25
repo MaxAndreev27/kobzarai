@@ -147,9 +147,10 @@ class HybridAnswerTests(unittest.TestCase):
                 str(output_path),
                 "--prompt",
                 "quote",
+                "--corpus",
+                str(corpus_path),
             ]
             with (
-                patch.object(run_hybrid_answers.retrieval, "CORPUS", corpus_path),
                 patch.object(
                     run_hybrid_answers.evaluate_hybrid, "VALIDATION", cases_path
                 ),

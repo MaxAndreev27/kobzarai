@@ -1,3 +1,4 @@
+import hashlib
 import json
 import sys
 import tempfile
@@ -156,13 +157,14 @@ class RunnerTests(unittest.TestCase):
             response = Response({"done": True, "message": {"content": "Відповідь."}})
             with (
                 patch.object(run_ollama, "DATASET", dataset),
-                patch.object(run_ollama.retrieval, "CORPUS", corpus),
                 patch.object(
                     sys,
                     "argv",
                     [
                         "run_ollama.py",
                         "--rag",
+                        "--corpus",
+                        str(corpus),
                         "--case-id",
                         "test-01",
                         "--output",
@@ -190,6 +192,10 @@ class RunnerTests(unittest.TestCase):
             ]
             self.assertEqual(status, 0)
             self.assertTrue(metadata["rag"])
+            self.assertEqual(
+                metadata["corpus_sha256"],
+                hashlib.sha256(corpus.read_bytes()).hexdigest(),
+            )
             self.assertEqual(result["retrieval"]["status"], "matched")
             self.assertEqual(result["retrieval"]["hits"][0]["id"], 1)
             self.assertIn(

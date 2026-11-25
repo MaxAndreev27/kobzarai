@@ -1,0 +1,6 @@
+{"id":"audit-quote-dumy-quarantine","split":"development","messages":[{"role":"user","content":"Звідки «Серце рвалося, сміялось, виливало мову»?"}],"expected_status":"matched","expected_work_id":735,"expected_title":"Думи мої, думи мої"}
+{"id":"audit-quote-song-ambiguous","split":"development","messages":[{"role":"user","content":"З якого твору «Реве та стогне Дніпр широкий»?"}],"expected_status":"ambiguous"}
+{"id":"audit-quote-dolia-truth","split":"development","messages":[{"role":"user","content":"Звідки рядки «Ми просто йшли у нас нема зерна неправди за собою»?"}],"expected_status":"matched","expected_work_id":3992,"expected_title":"Доля"}
+{"id":"audit-quote-mohyla-river","split":"development","messages":[{"role":"user","content":"Який твір містить «Дніпро, брат мій, висихає, мене покидає»?"}],"expected_status":"matched","expected_work_id":23446,"expected_title":"Розрита могила"}
+{"id":"audit-quote-missing","split":"development","messages":[{"role":"user","content":"Звідки «Дніпро брат мій за хмарами зникає»?"}],"expected_status":"not_found"}
+{"id":"audit-quote-multiple","split":"development","messages":[{"role":"user","content":"«Дніпро, брат мій, висихає, мене покидає» із «Розритої могили»?"}],"expected_status":"multiple_quotes"}

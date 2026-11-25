@@ -131,13 +131,14 @@ def main() -> None:
     parser.add_argument("--hybrid-report", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--cases", type=Path, default=evaluate_hybrid.VALIDATION)
+    parser.add_argument("--corpus", type=Path, default=retrieval.CORPUS)
     parser.add_argument("--prompt", choices=PROMPTS, default="baseline")
     args = parser.parse_args()
     if args.output.exists():
         raise FileExistsError(f"Output already exists: {args.output}")
     report_data = args.hybrid_report.read_bytes()
     report = json.loads(report_data)
-    corpus_data = retrieval.CORPUS.read_bytes()
+    corpus_data = args.corpus.read_bytes()
     cases_data = args.cases.read_bytes()
     cases = prepare_cases(report, corpus_data, cases_data)
 

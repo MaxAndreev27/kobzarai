@@ -43,6 +43,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--dataset", type=Path, default=DATASET)
+    parser.add_argument("--corpus", type=Path, default=retrieval.CORPUS)
     parser.add_argument("--model", default="qwen3:1.7b")
     parser.add_argument("--limit", type=int)
     parser.add_argument("--threads", type=int, default=4)
@@ -78,7 +79,7 @@ def main() -> int:
         cases = cases[: args.limit]
     if not cases:
         raise ValueError("No development cases found")
-    corpus_data = retrieval.CORPUS.read_bytes() if args.rag else None
+    corpus_data = args.corpus.read_bytes() if args.rag else None
     corpus = retrieval.load_corpus(corpus_data) if corpus_data is not None else None
     chunks = retrieval.build_chunks(corpus) if corpus is not None else None
 

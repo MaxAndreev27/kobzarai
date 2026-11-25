@@ -11,7 +11,10 @@ CHUNK_CHARS = 800
 CHUNK_OVERLAP = 160
 MAX_EXCERPT_CHARS = 1000
 DEFAULT_TOP_K = 2
-TITLE_PATTERN_EXCEPTIONS = {"причинна": r"причинн(?:а|ої|ій|у|ою)"}
+TITLE_PATTERN_EXCEPTIONS = {
+    "причинна": r"причинн(?:а|ої|ій|у|ою)",
+    "розрита могила": r"розрит(?:а могила|ої могили|ій могилі|у могилу|ою могилою)",
+}
 TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
 QUOTE_WORD_RE = re.compile(r"[^\W_]+(?:['’ʼ][^\W_]+)*", re.UNICODE)
 QUOTE_RE = re.compile(r'«([^»]*)»|“([^”]*)”|"([^"]*)"')

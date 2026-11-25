@@ -154,6 +154,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hybrid-report", type=Path, required=True)
     parser.add_argument("--cases", type=Path, required=True)
+    parser.add_argument("--corpus", type=Path, default=retrieval.CORPUS)
     parser.add_argument("--baseline", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -162,7 +163,7 @@ def main() -> None:
     report_data = args.hybrid_report.read_bytes()
     report = json.loads(report_data)
     cases = baseline.prepare_cases(
-        report, retrieval.CORPUS.read_bytes(), args.cases.read_bytes()
+        report, args.corpus.read_bytes(), args.cases.read_bytes()
     )
     baseline_data = args.baseline.read_bytes()
     records = [

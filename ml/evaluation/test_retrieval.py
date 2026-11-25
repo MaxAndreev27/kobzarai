@@ -115,6 +115,26 @@ class RetrievalTests(unittest.TestCase):
                     retrieval.find_work(query, corpus), ("not_found", None)
                 )
 
+    def test_inflected_multiword_title_is_matched_as_a_whole(self):
+        corpus = [work(1, "Розрита могила"), work(2, "Могила")]
+        for title in (
+            "Розрита могила",
+            "Розритої могили",
+            "Розритій могилі",
+            "Розриту могилу",
+            "Розритою могилою",
+        ):
+            for query in (f"Що сказано у «{title}»?", f"Що сказано у {title}?"):
+                with self.subTest(query=query):
+                    status, result = retrieval.find_work(query, corpus)
+                    self.assertEqual(status, "matched")
+                    assert result is not None
+                    self.assertEqual(result["id"], 1)
+        self.assertEqual(
+            retrieval.find_work("Про твір «Розритої могили історія»?", corpus),
+            ("not_found", None),
+        )
+
     def test_quoted_titles_and_unrelated_quotation_remain_independent(self):
         corpus = [work(1, "Заповіт"), work(2, "Наймичка")]
         status, result = retrieval.find_work(
