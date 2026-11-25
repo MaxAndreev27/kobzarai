@@ -12,6 +12,10 @@ CHUNK_OVERLAP = 160
 MAX_EXCERPT_CHARS = 1000
 DEFAULT_TOP_K = 2
 TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
+QUOTE_RE = re.compile(r'«([^»]*)»|“([^”]*)”|"([^"]*)"')
+WORK_LABEL_RE = re.compile(
+    r"\b(?:твір|твор\w*|поем\w*|вірш\w*|збірк\w*)\s*$", re.IGNORECASE
+)
 STOPWORDS = {
     "аби",
     "або",
@@ -155,28 +159,62 @@ def title_pattern(title: str) -> str:
     normalized = normalize(title)
     if " " not in normalized and len(normalized) >= 5:
         if normalized.endswith("а"):
+            if normalized.endswith("ка"):
+                return (
+                    re.escape(normalized[:-1])
+                    + r"(?:а|и|і|у|ою)|"
+                    + re.escape(normalized[:-2])
+                    + r"ці"
+                )
             return re.escape(normalized[:-1]) + r"(?:а|и|і|у|ою)"
         if normalized.endswith("я"):
             return re.escape(normalized[:-1]) + r"(?:я|і|ю|єю)"
+        if normalized.endswith("и"):
+            return re.escape(normalized[:-1]) + r"(?:и|ів|ам|ами|ах)"
         if normalized[-1] not in "еєиіїоую":
             return re.escape(normalized) + r"(?:а|у|ом|ові|і)?"
     return re.escape(normalized)
 
 
 def find_work(query: str, corpus: list[Work]) -> tuple[str, Work | None]:
-    normalized = normalize(query)
-    matches = []
-    for work in corpus:
-        pattern = title_pattern(work["title"])
-        if not pattern:
-            continue
-        match = re.search(rf"(?<!\w){pattern}(?!\w)", normalized)
-        if match:
-            matches.append((match.start(), match.end(), work))
+    patterns = [(work, title_pattern(work["title"])) for work in corpus]
+    segments: list[tuple[str, bool]] = []
+    start = 0
+    for quotation in QUOTE_RE.finditer(query):
+        segments.append((normalize(query[start : quotation.start()]), False))
+        quoted = normalize(
+            next(group for group in quotation.groups() if group is not None)
+        )
+        if WORK_LABEL_RE.search(query[: quotation.start()]) and not any(
+            pattern and re.fullmatch(pattern, quoted) for _, pattern in patterns
+        ):
+            return "not_found", None
+        segments.append((quoted, True))
+        start = quotation.end()
+    segments.append((normalize(query[start:]), False))
+
+    matches: list[tuple[int, int, Work]] = []
+    offset = 0
+    for text, quoted in segments:
+        for work, pattern in patterns:
+            if not pattern:
+                continue
+            if quoted:
+                matches_in_segment = [re.fullmatch(pattern, text)]
+            else:
+                matches_in_segment = re.finditer(rf"(?<!\w)(?:{pattern})(?!\w)", text)
+            for match in matches_in_segment:
+                if match is not None:
+                    matches.append((offset + match.start(), offset + match.end(), work))
+        offset += len(text) + 1
     matches.sort(key=lambda item: (-(item[1] - item[0]), item[0]))
     distinct = []
     for match in matches:
-        if not any(match[0] < other[1] and other[0] < match[1] for other in distinct):
+        if not any(
+            match[2]["id"] == other[2]["id"]
+            or (match[0] < other[1] and other[0] < match[1])
+            for other in distinct
+        ):
             distinct.append(match)
     if not distinct:
         return "not_found", None

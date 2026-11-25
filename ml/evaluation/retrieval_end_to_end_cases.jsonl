@@ -1,0 +1,14 @@
+{"id":"inflected-naimychka","query":"Де в «Наймичці» молодиця розмовляє з туманом?","expected_status":"matched","work_id":763,"evidence":"У тумані на могилі,\nЯк тополя, похилилась\nМолодиця молодая."}
+{"id":"inflected-haidamaky","query":"Які зорі згадуються на початку «Гайдамаків»?","expected_status":"matched","work_id":723,"evidence":"А сонечко встане, як перше вставало,\nІ зорі червоні, як перше плили,"}
+{"id":"inflected-kateryna","query":"Яке застереження чорнобривим відкриває «Катерину»?","expected_status":"matched","work_id":742,"evidence":"Кохайтеся, чорнобриві,\nТа не з москалями,"}
+{"id":"inflected-zavit","query":"Що автор сказав «Заповітом» про лани, Дніпро і кручі?","expected_status":"matched","work_id":729,"evidence":"Щоб лани широкополі,\nІ Дніпро, і кручі\nБуло видно, було чути,"}
+{"id":"inflected-kavkaz","query":"Що поет сказав «Кавказом» про кару Прометея?","expected_status":"matched","work_id":741,"evidence":"Споконвіку Прометея\nТам орел карає,\nЩо день божий довбе ребра\nЙ серце розбиває."}
+{"id":"unquoted-kateryna","query":"Що кажуть чорнобривим про москалів у поемі Катерина?","expected_status":"matched","work_id":742,"evidence":"Кохайтеся, чорнобриві,\nТа не з москалями,"}
+{"id":"paraphrase-kateryna","query":"Яке застереження звучить на початку «Катерини»?","expected_status":"matched","work_id":742,"evidence":"Кохайтеся, чорнобриві,\nТа не з москалями,"}
+{"id":"paraphrase-haidamaky","query":"Що сказано про сонце й зорі на початку твору «Гайдамаки»?","expected_status":"matched","work_id":723,"evidence":"А сонечко встане, як перше вставало,\nІ зорі червоні, як перше плили,"}
+{"id":"unknown-quoted","query":"Що написано в поемі «Залізне дерево часу»?","expected_status":"not_found"}
+{"id":"unknown-contains-known-title","query":"Про що твір «Заповіт космічного мандрівника»?","expected_status":"not_found"}
+{"id":"unknown-with-common-word","query":"Про що поема «Небесний зореліт», де згадується доля?","expected_status":"not_found"}
+{"id":"no-title","query":"Яку поему починають словами «Кохайтеся, чорнобриві»?","expected_status":"not_found"}
+{"id":"ambiguous-two-works","query":"Що спільного в «Катерині» та «Кавказі»?","expected_status":"ambiguous"}
+{"id":"ambiguous-another-pair","query":"Порівняй «Заповіт» і «Наймичку».","expected_status":"ambiguous"}

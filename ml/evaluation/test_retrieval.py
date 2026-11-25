@@ -1,13 +1,13 @@
 import json
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+import evaluate_retrieval
 import retrieval
 
 
-def work(
-    identifier: int, title: str, text: str = "Початок твору."
-) -> retrieval.Work:
+def work(identifier: int, title: str, text: str = "Початок твору.") -> retrieval.Work:
     return {
         "id": identifier,
         "title": title,
@@ -18,11 +18,20 @@ def work(
 
 class RetrievalTests(unittest.TestCase):
     def test_title_and_inflected_title_match(self):
-        corpus = [work(1, "Катерина"), work(2, "Заповіт")]
+        corpus = [
+            work(1, "Катерина"),
+            work(2, "Заповіт"),
+            work(3, "Наймичка"),
+            work(4, "Гайдамаки"),
+        ]
         for query, expected in [
             ("Про що поема «Катерина»?", 1),
             ("Які теми «Катерини»?", 1),
             ("Розкажи про «Заповіту».", 2),
+            ("Що відбувається в «Наймичці»?", 3),
+            ("Про що розповідається на початку «Гайдамаків»?", 4),
+            ("Що відбувається у Наймичці?", 3),
+            ("Що сказав автор Гайдамаками?", 4),
         ]:
             with self.subTest(query=query):
                 status, result = retrieval.find_work(query, corpus)
@@ -30,6 +39,32 @@ class RetrievalTests(unittest.TestCase):
                 self.assertIsNotNone(result)
                 assert result is not None
                 self.assertEqual(result["id"], expected)
+
+    def test_explicit_unknown_title_does_not_match_known_title_or_other_words(self):
+        corpus = [work(1, "Заповіт"), work(2, "Доля")]
+        for query in (
+            "Про що твір «Заповіт космічного мандрівника»?",
+            "Про що поема «Небесний зореліт», де згадується доля?",
+            'Про що вірш "Заповіт мандрівника"?',
+            "Що скажеш про «Заповіт космічного мандрівника»?",
+        ):
+            with self.subTest(query=query):
+                self.assertEqual(
+                    retrieval.find_work(query, corpus), ("not_found", None)
+                )
+
+    def test_quoted_titles_and_unrelated_quotation_remain_independent(self):
+        corpus = [work(1, "Заповіт"), work(2, "Наймичка")]
+        status, result = retrieval.find_work(
+            "Що означає «лан широкий» у творі «Заповіт»?", corpus
+        )
+        self.assertEqual(status, "matched")
+        assert result is not None
+        self.assertEqual(result["id"], 1)
+        self.assertEqual(
+            retrieval.find_work("Порівняй «Заповіт» і «Наймичку»", corpus),
+            ("ambiguous", None),
+        )
 
     def test_unknown_boundary_and_ambiguous_names(self):
         corpus = [work(1, "Катерина"), work(2, "Кавказ")]
@@ -92,12 +127,54 @@ class RetrievalTests(unittest.TestCase):
                 hits = retrieval.search_chunks(
                     case["query"],
                     chunks,
-                    work_id=work["id"],
-                    exclude_title=work["title"],
+                    work_id=found["id"],
+                    exclude_title=found["title"],
                 )
                 self.assertTrue(hits)
-                excerpt = "\n".join(hit["chunk"]["text"] for hit in hits)
-                self.assertIn(case["evidence"], excerpt)
+                self.assertTrue(
+                    any(case["evidence"] in hit["chunk"]["text"] for hit in hits)
+                )
+
+    def test_end_to_end_evaluator_does_not_use_expected_id_for_search(self):
+        corpus = [work(1, "Катерина", "Кохайтеся, чорнобриві.")]
+        chunks = retrieval.build_chunks(corpus)
+        case: evaluate_retrieval.Case = {
+            "id": "test",
+            "query": "Які слова про кохайтеся у «Катерині»?",
+            "work_id": 999,
+            "evidence": "Кохайтеся, чорнобриві.",
+        }
+        with patch.object(
+            retrieval, "search_chunks", wraps=retrieval.search_chunks
+        ) as search:
+            result = evaluate_retrieval.evaluate_case(case, corpus, chunks)
+        self.assertEqual(search.call_args.kwargs["work_id"], 1)
+        self.assertEqual(result["actual_work_id"], 1)
+        self.assertFalse(result["title_correct"])
+        self.assertEqual(result["evidence_rank"], 1)
+
+    def test_end_to_end_evaluator_handles_unknown_and_no_relevant_chunk(self):
+        corpus = [work(1, "Катерина", "Кохайтеся, чорнобриві.")]
+        chunks = retrieval.build_chunks(corpus)
+        unknown: evaluate_retrieval.Case = {
+            "id": "unknown",
+            "query": "Про твір «Невідомий»?",
+            "expected_status": "not_found",
+        }
+        result = evaluate_retrieval.evaluate_case(unknown, corpus, chunks)
+        self.assertTrue(result["title_correct"])
+        self.assertEqual(result["hits"], [])
+
+        no_hits: evaluate_retrieval.Case = {
+            "id": "no-hits",
+            "query": "Про твір «Катерина»?",
+            "work_id": 1,
+            "evidence": "Кохайтеся, чорнобриві.",
+        }
+        result = evaluate_retrieval.evaluate_case(no_hits, corpus, chunks)
+        self.assertTrue(result["title_correct"])
+        self.assertIsNone(result["evidence_rank"])
+        self.assertEqual(result["hits"], [])
 
 
 if __name__ == "__main__":
