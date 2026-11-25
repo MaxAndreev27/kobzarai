@@ -16,6 +16,16 @@ QUOTE_RE = re.compile(r'«([^»]*)»|“([^”]*)”|"([^"]*)"')
 WORK_LABEL_RE = re.compile(
     r"\b(?:твір|твор\w*|поем\w*|вірш\w*|збірк\w*)\s*$", re.IGNORECASE
 )
+WORK_BEGINNING_RE = re.compile(
+    r"\b(?:на\s+(?:самому\s+)?початку|(?:у|в)\s+(?:вступі|пролозі|перших\s+рядках))\b",
+    re.IGNORECASE,
+)
+OTHER_POSITION_RE = re.compile(
+    r"\b(?:не\s+(?:на\s+(?:самому\s+)?початку|(?:у|в)\s+"
+    r"(?:вступі|пролозі|перших\s+рядках))|розділ\w*|глав\w*|частин\w*|"
+    r"кінц\w*|наприкінці|епілог\w*)\b",
+    re.IGNORECASE,
+)
 STOPWORDS = {
     "аби",
     "або",
@@ -112,6 +122,7 @@ class Chunk(TypedDict):
     start_char: int
     end_char: int
     text: str
+    is_first: bool
 
 
 class SearchHit(TypedDict):
@@ -255,6 +266,7 @@ def _chunks_for_work(work: Work) -> list[Chunk]:
                     start_char=chunk_start,
                     end_char=chunk_end,
                     text=text[chunk_start:chunk_end],
+                    is_first=not chunks,
                 )
             )
         if end == len(text):
@@ -296,14 +308,31 @@ def search_chunks(
     excluded = (
         set(TOKEN_RE.findall(exclude_title.casefold())) if exclude_title else set()
     )
+    if exclude_title and len(excluded) == 1:
+        pattern = title_pattern(exclude_title)
+        excluded.update(
+            token
+            for token in TOKEN_RE.findall(query.casefold())
+            if re.fullmatch(pattern, token)
+        )
     query_terms = set(_terms(query, excluded))
-    if not query_terms:
+    beginning = (
+        work_id is not None
+        and WORK_BEGINNING_RE.search(query) is not None
+        and OTHER_POSITION_RE.search(query) is None
+    )
+    if not query_terms and not beginning:
         return []
     candidates = [
         chunk for chunk in chunks if work_id is None or chunk["id"] == work_id
     ]
     if not candidates:
         return []
+    first = next((chunk for chunk in candidates if chunk["is_first"]), None)
+    if beginning and first is None:
+        beginning = False
+        if not query_terms:
+            return []
 
     documents = [_terms(chunk["text"]) for chunk in candidates]
     document_frequency: dict[str, int] = {}
@@ -328,6 +357,14 @@ def search_chunks(
             score += inverse_frequency * frequency * 2.5 / denominator
         if score > 0:
             scored.append(SearchHit(chunk=chunk, score=score))
+    if beginning and first is not None:
+        bonus = max((hit["score"] for hit in scored), default=0.0) + 1.0
+        for hit in scored:
+            if hit["chunk"] is first:
+                hit["score"] += bonus
+                break
+        else:
+            scored.append(SearchHit(chunk=first, score=bonus))
     scored.sort(key=lambda hit: (-hit["score"], hit["chunk"]["start_char"]))
     return scored[:top_k]
 

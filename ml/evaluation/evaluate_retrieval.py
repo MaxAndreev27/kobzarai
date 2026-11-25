@@ -11,6 +11,7 @@ import retrieval
 CASE_FILES = (
     Path(__file__).with_name("retrieval_cases.jsonl"),
     Path(__file__).with_name("retrieval_end_to_end_cases.jsonl"),
+    Path(__file__).with_name("retrieval_ranking_cases.jsonl"),
 )
 
 

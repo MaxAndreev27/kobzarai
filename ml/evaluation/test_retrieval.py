@@ -105,6 +105,93 @@ class RetrievalTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             retrieval.load_corpus(b'{"id": 1}')
 
+    def test_explicit_work_beginning_selects_first_chunk(self):
+        corpus = [
+            work(1, "Гайдамаки", "На світанку тиха річка.\n" * 50 + "Сонце і зорі.")
+        ]
+        chunks = retrieval.build_chunks(corpus)
+        hits = retrieval.search_chunks(
+            "Що про сонце на початку «Гайдамаки»?",
+            chunks,
+            work_id=1,
+            exclude_title="Гайдамаки",
+            top_k=1,
+        )
+        self.assertEqual(hits[0]["chunk"]["start_char"], 0)
+        hits = retrieval.search_chunks(
+            "Що на початку «Гайдамаки»?",
+            chunks,
+            work_id=1,
+            exclude_title="Гайдамаки",
+            top_k=1,
+        )
+        self.assertEqual(hits[0]["chunk"]["start_char"], 0)
+
+    def test_section_beginning_or_negated_beginning_is_not_work_beginning(self):
+        corpus = [
+            work(1, "Гайдамаки", "На світанку тиха річка.\n" * 50 + "Сонце і зорі.")
+        ]
+        chunks = retrieval.build_chunks(corpus)
+        for query in (
+            "Що про сонце на початку розділу в «Гайдамаки»?",
+            "Що про сонце не на початку «Гайдамаки»?",
+            "Що про сонце не в перших рядках «Гайдамаки»?",
+        ):
+            with self.subTest(query=query):
+                hits = retrieval.search_chunks(
+                    query, chunks, work_id=1, exclude_title="Гайдамаки", top_k=1
+                )
+                self.assertGreater(hits[0]["chunk"]["start_char"], 0)
+
+    def test_position_requires_the_actual_first_chunk(self):
+        corpus = [work(1, "Гайдамаки", " \n" + "Перший рядок.\n" * 100)]
+        chunks = retrieval.build_chunks(corpus)
+        self.assertGreater(chunks[0]["start_char"], 0)
+        self.assertTrue(chunks[0]["is_first"])
+        self.assertTrue(
+            retrieval.search_chunks(
+                "Що на початку «Гайдамаки»?",
+                chunks,
+                work_id=1,
+                exclude_title="Гайдамаки",
+            )
+        )
+        self.assertEqual(
+            retrieval.search_chunks(
+                "Що на початку «Гайдамаки»?",
+                chunks[1:],
+                work_id=1,
+                exclude_title="Гайдамаки",
+            ),
+            [],
+        )
+
+    def test_inflected_title_does_not_dominate_chunk_ranking(self):
+        chunks: list[retrieval.Chunk] = [
+            {
+                "id": 1,
+                "title": "Наймичка",
+                "source": "https://example.org/1",
+                "start_char": 0,
+                "end_char": 9,
+                "text": "Наймичці",
+                "is_first": True,
+            },
+            {
+                "id": 1,
+                "title": "Наймичка",
+                "source": "https://example.org/1",
+                "start_char": 10,
+                "end_char": 15,
+                "text": "Марко",
+                "is_first": False,
+            },
+        ]
+        hits = retrieval.search_chunks(
+            "«Наймичці» Марко", chunks, work_id=1, exclude_title="Наймичка", top_k=1
+        )
+        self.assertEqual(hits[0]["chunk"]["start_char"], 10)
+
     def test_retrieval_cases_find_the_expected_source_fragment(self):
         project = Path(__file__).resolve().parents[1]
         corpus = retrieval.load_corpus(retrieval.CORPUS.read_bytes())
