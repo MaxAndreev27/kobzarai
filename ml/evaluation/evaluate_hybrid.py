@@ -236,6 +236,7 @@ def summarize(rows: list[dict], threshold: float) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--validation", type=Path, default=VALIDATION)
     args = parser.parse_args()
     if args.output.exists():
         raise FileExistsError(f"Output already exists: {args.output}")
@@ -243,7 +244,7 @@ def main() -> None:
     corpus = retrieval.load_corpus(corpus_data)
     chunks = retrieval.build_chunks(corpus)
     training_data, training = load_cases(comparison.CASES, chunks)
-    validation_data, validation = load_cases(VALIDATION, chunks)
+    validation_data, validation = load_cases(args.validation, chunks)
     if {case["id"] for case in training} & {case["id"] for case in validation}:
         raise ValueError("Calibration and validation case IDs overlap")
 

@@ -1,0 +1,20 @@
+{"id":"evidence-topolia-field","query":"З чим порівняно поле довкола тополі у «Тополі»?","work_id":784,"evidence":"Кругом поле, як те море\nШироке, синіє."}
+{"id":"evidence-topolia-shepherd","query":"Хто вранці сяде на могилі в баладі «Тополя»?","work_id":784,"evidence":"Чабан вранці з сопілкою\nСяде на могилі,"}
+{"id":"evidence-prychynna-moon","query":"На що схожий місяць, який виглядає з хмари в «Причинній»?","work_id":774,"evidence":"Неначе човен в синім морі,\nТо виринав, то потопав."}
+{"id":"evidence-prychynna-return","query":"Що робить козак, коли бачить дівчину під дубом у «Причинній»?","work_id":774,"evidence":"Кинув коня та до неї:\n\"Боже ти мій, боже!\"\nКличе її та цілує..."}
+{"id":"evidence-dolia-friend","query":"Ким стала доля для сироти у вірші «Доля»?","work_id":3992,"evidence":"Ти другом, братом і сестрою\nСіромі стала."}
+{"id":"evidence-dolia-learned","query":"Що зробив хлопець після настанови вчитися у вірші «Доля»?","work_id":3992,"evidence":"А я й послухав, і учивсь,\nІ вивчився."}
+{"id":"evidence-zavit-chains","query":"Що автор закликає зробити з кайданами у «Заповіті»?","work_id":729,"evidence":"Кайдани порвіте"}
+{"id":"evidence-zavit-sea","query":"У яке море понесе ворожу кров у «Заповіті»?","work_id":729,"evidence":"У синєє море\nКров ворожу"}
+{"id":"evidence-kavkaz-eagle","query":"Хто карає Прометея у творі «Кавказ»?","work_id":741,"evidence":"Споконвіку Прометея\nТам орел карає,"}
+{"id":"evidence-kavkaz-soul","query":"Що, за словами поета, не вмирає у «Кавказі»?","work_id":741,"evidence":"Не вмирає душа наша,\nНе вмирає воля."}
+{"id":"evidence-naimychka-fog","query":"З ким розмовляє молодиця у пролозі «Наймички»?","work_id":763,"evidence":"Та з туманом розмовляє:"}
+{"id":"evidence-kateryna-turkey","query":"Куди пішов москаль у творі «Катерина»?","work_id":742,"evidence":"Пішов москаль в Туреччину;"}
+{"id":"evidence-no-topolia-train","query":"О котрій годині відправляється потяг у «Тополі»?","work_id":784,"answerable":false}
+{"id":"evidence-no-prychynna-email","query":"Яку адресу електронної пошти має козак у «Причинній»?","work_id":774,"answerable":false}
+{"id":"evidence-no-dolia-diploma","query":"Який номер диплома хлопця згадано у вірші «Доля»?","work_id":3992,"answerable":false}
+{"id":"evidence-no-zavit-ship","query":"Як називається корабель у вірші «Заповіт»?","work_id":729,"answerable":false}
+{"id":"evidence-no-kavkaz-airport","query":"Як називається аеропорт у поемі «Кавказ»?","work_id":741,"answerable":false}
+{"id":"evidence-no-naimychka-street","query":"Яка поштова адреса хутора згадується у «Наймичці»?","work_id":763,"answerable":false}
+{"id":"evidence-unknown","query":"Про що вірш «Сонячний годинник на Марсі»?","expected_status":"not_found"}
+{"id":"evidence-ambiguous","query":"Порівняй «Доля» і «Заповіт».","expected_status":"ambiguous"}
