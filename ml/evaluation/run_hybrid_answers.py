@@ -1,4 +1,4 @@
-"""Replay hybrid retrieval results with Qwen3, comparing the gate with no gate."""
+"""Replay hybrid retrieval results with Qwen3 to compare prompts and refusals."""
 
 import argparse
 import hashlib
@@ -21,6 +21,21 @@ SYSTEM_PROMPT = (
     "не доводить, що факт чи твір відсутній в усьому творі або корпусі; "
     "не роби таких висновків."
 )
+QUOTE_PROMPT = (
+    SYSTEM_PROMPT
+    + " Спочатку прямо відповідай на запитання, а потім наведи коротку дослівну "
+    "цитату з наданого фрагмента, яка підтверджує відповідь. Не додавай деталей, "
+    "яких цитата не підтверджує. Якщо відповіді у фрагментах немає, скажи лише, "
+    "що в наданих фрагментах недостатньо даних, без цитати і припущень."
+)
+DIRECT_PROMPT = (
+    SYSTEM_PROMPT
+    + " Перевір, чи фрагмент прямо містить саме запитаний факт, а не лише ті самі "
+    "слова. Якщо ні, відповідай тільки: «У наданих фрагментах недостатньо даних». "
+    "Якщо так, коротко відповідай саме на запитання, не переказуючи інших фактів "
+    "і не додаючи нічого від себе."
+)
+PROMPTS = {"baseline": SYSTEM_PROMPT, "quote": QUOTE_PROMPT, "direct": DIRECT_PROMPT}
 OPTIONS = {
     "num_ctx": 4096,
     "num_predict": 160,
@@ -89,12 +104,14 @@ def prepare_cases(
     return prepared
 
 
-def make_messages(row: dict, hits: list[retrieval.SearchHit]) -> list[dict[str, str]]:
+def make_messages(
+    row: dict, hits: list[retrieval.SearchHit], system_prompt: str = SYSTEM_PROMPT
+) -> list[dict[str, str]]:
     query = row["query"]
     if row["actual_status"] != "matched":
         query = retrieval.add_lookup_warning(query, row["actual_status"])
     return [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": retrieval.add_chunk_context(query, hits)},
     ]
 
@@ -113,6 +130,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hybrid-report", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--prompt", choices=PROMPTS, default="baseline")
     args = parser.parse_args()
     if args.output.exists():
         raise FileExistsError(f"Output already exists: {args.output}")
@@ -139,7 +157,8 @@ def main() -> None:
         "threshold": report["threshold"],
         "model": model,
         "ollama_version": version.json()["version"],
-        "system_prompt": SYSTEM_PROMPT,
+        "prompt_variant": args.prompt,
+        "system_prompt": PROMPTS[args.prompt],
         "options": OPTIONS,
         "think": False,
         "case_count": len(cases),
@@ -150,7 +169,7 @@ def main() -> None:
     with args.output.open("x", encoding="utf-8") as output:
         run_ollama.write_record(output, metadata)
         for index, (row, hits) in enumerate(cases, 1):
-            messages = make_messages(row, hits)
+            messages = make_messages(row, hits, PROMPTS[args.prompt])
             result = None
             try:
                 response = requests.post(

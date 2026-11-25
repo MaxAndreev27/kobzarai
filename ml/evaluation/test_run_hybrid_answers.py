@@ -68,6 +68,7 @@ class HybridAnswerTests(unittest.TestCase):
         report, corpus, cases = fixture()
         prepared = run_hybrid_answers.prepare_cases(report, corpus, cases)
         messages = run_hybrid_answers.make_messages(*prepared[0])
+        self.assertEqual(messages[0]["content"], run_hybrid_answers.SYSTEM_PROMPT)
         self.assertIn("Вітер гне дерево.", messages[1]["content"])
         self.assertNotIn("GOLD", json.dumps(messages))
         unknown = run_hybrid_answers.make_messages(*prepared[1])
@@ -144,6 +145,8 @@ class HybridAnswerTests(unittest.TestCase):
                 str(report_path),
                 "--output",
                 str(output_path),
+                "--prompt",
+                "quote",
             ]
             with (
                 patch.object(run_hybrid_answers.retrieval, "CORPUS", corpus_path),
@@ -166,6 +169,14 @@ class HybridAnswerTests(unittest.TestCase):
                 for line in output_path.read_text(encoding="utf-8").splitlines()
             ]
             self.assertEqual(post.call_count, 2)
+            self.assertEqual(records[0]["prompt_variant"], "quote")
+            self.assertEqual(
+                records[0]["system_prompt"], run_hybrid_answers.QUOTE_PROMPT
+            )
+            self.assertEqual(
+                post.call_args.kwargs["json"]["messages"][0]["content"],
+                run_hybrid_answers.QUOTE_PROMPT,
+            )
             self.assertEqual(
                 records[1]["gated_answer"],
                 records[1]["ungated_response"]["message"]["content"],
