@@ -23,6 +23,7 @@ class RetrievalTests(unittest.TestCase):
             work(2, "Заповіт"),
             work(3, "Наймичка"),
             work(4, "Гайдамаки"),
+            work(5, "Причинна"),
         ]
         for query, expected in [
             ("Про що поема «Катерина»?", 1),
@@ -32,6 +33,10 @@ class RetrievalTests(unittest.TestCase):
             ("Про що розповідається на початку «Гайдамаків»?", 4),
             ("Що відбувається у Наймичці?", 3),
             ("Що сказав автор Гайдамаками?", 4),
+            ("Яку картину показано у «Причинній»?", 5),
+            ("Про що в «Причинної»?", 5),
+            ("Розкажи про Причинну.", 5),
+            ("Що спільного з Причинною?", 5),
         ]:
             with self.subTest(query=query):
                 status, result = retrieval.find_work(query, corpus)
@@ -67,7 +72,7 @@ class RetrievalTests(unittest.TestCase):
         )
 
     def test_unknown_boundary_and_ambiguous_names(self):
-        corpus = [work(1, "Катерина"), work(2, "Кавказ")]
+        corpus = [work(1, "Катерина"), work(2, "Кавказ"), work(3, "Причинна")]
         self.assertEqual(
             retrieval.find_work("Катеринбург", corpus), ("not_found", None)
         )
@@ -77,6 +82,15 @@ class RetrievalTests(unittest.TestCase):
         query = "Чи існує твір «Невідомий»?"
         self.assertEqual(retrieval.find_work(query, corpus), ("not_found", None))
         self.assertIn("не доводить", retrieval.add_lookup_warning(query, "not_found"))
+        for query in ("Про вірш «Причинність»?", "Про твір «Причинної історії»?"):
+            with self.subTest(query=query):
+                self.assertEqual(
+                    retrieval.find_work(query, corpus), ("not_found", None)
+                )
+        self.assertEqual(
+            retrieval.find_work("Порівняй «Причинній» і «Катерина»", corpus),
+            ("ambiguous", None),
+        )
 
     def test_longer_overlapping_title_wins(self):
         corpus = [work(1, "Берег"), work(2, "Берег мрій")]
@@ -191,6 +205,17 @@ class RetrievalTests(unittest.TestCase):
             "«Наймичці» Марко", chunks, work_id=1, exclude_title="Наймичка", top_k=1
         )
         self.assertEqual(hits[0]["chunk"]["start_char"], 10)
+
+    def test_adjectival_title_is_excluded_from_chunk_ranking(self):
+        corpus = [work(1, "Причинна", "Причинній\n" * 100 + "Марко")]
+        hits = retrieval.search_chunks(
+            "«Причинній» Марко",
+            retrieval.build_chunks(corpus),
+            work_id=1,
+            exclude_title="Причинна",
+        )
+        self.assertTrue(hits)
+        self.assertIn("Марко", hits[0]["chunk"]["text"])
 
     def test_retrieval_cases_find_the_expected_source_fragment(self):
         project = Path(__file__).resolve().parents[1]

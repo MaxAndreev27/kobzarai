@@ -17,7 +17,9 @@ SYSTEM_PROMPT = (
     "Відповідай українською коротко, одним-двома реченнями. "
     "На питання про твори відповідай лише за наданими фрагментами. "
     "Якщо відповіді в них немає, скажи, що даних недостатньо; "
-    "не вигадуй фактів чи цитат."
+    "не вигадуй фактів чи цитат. Відсутність фрагмента або відповіді в ньому "
+    "не доводить, що факт чи твір відсутній в усьому творі або корпусі; "
+    "не роби таких висновків."
 )
 OPTIONS = {
     "num_ctx": 4096,
@@ -27,6 +29,8 @@ OPTIONS = {
     "top_k": 20,
     "seed": 42,
 }
+NO_SOURCE_REFUSAL = "Не вдалося знайти надійний фрагмент для відповіді. Уточніть, будь ласка, назву твору."
+AMBIGUOUS_REFUSAL = "Не вдалося однозначно визначити твір. Уточніть, будь ласка, назву."
 
 
 def prepare_cases(
@@ -64,7 +68,7 @@ def prepare_cases(
         ] != evaluate_hybrid.decide(row["confidence"], report["threshold"]):
             raise ValueError(f"Inconsistent gate decision: {case['id']}")
         saved_hits = row["hybrid"]["hits"] if status == "matched" else []
-        if status == "matched" and not 1 <= len(saved_hits) <= retrieval.DEFAULT_TOP_K:
+        if status == "matched" and len(saved_hits) > retrieval.DEFAULT_TOP_K:
             raise ValueError(f"Invalid source chunk count: {case['id']}")
         hits = []
         seen = set()
@@ -93,6 +97,16 @@ def make_messages(row: dict, hits: list[retrieval.SearchHit]) -> list[dict[str, 
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": retrieval.add_chunk_context(query, hits)},
     ]
+
+
+def source_guard_answer(
+    status: str, hits: list[retrieval.SearchHit], model_answer: str
+) -> str:
+    if hits:
+        return model_answer
+    if status == "ambiguous":
+        return AMBIGUOUS_REFUSAL
+    return NO_SOURCE_REFUSAL
 
 
 def main() -> None:
@@ -130,6 +144,7 @@ def main() -> None:
         "think": False,
         "case_count": len(cases),
         "comparison": "ungated model response versus same response when gate accepts, fixed refusal otherwise",
+        "source_guard": "reuse model response when sources exist; fixed refusal otherwise",
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x", encoding="utf-8") as output:
@@ -209,6 +224,12 @@ def main() -> None:
                     else evaluate_hybrid.REFUSAL,
                     "gated_answer_source": "ungated_response"
                     if row["accepted"]
+                    else "fixed_refusal",
+                    "source_guard_answer": source_guard_answer(
+                        row["actual_status"], hits, ungated
+                    ),
+                    "source_guard_answer_source": "ungated_response"
+                    if hits
                     else "fixed_refusal",
                     "placement": placement,
                 },

@@ -11,6 +11,7 @@ CHUNK_CHARS = 800
 CHUNK_OVERLAP = 160
 MAX_EXCERPT_CHARS = 1000
 DEFAULT_TOP_K = 2
+TITLE_PATTERN_EXCEPTIONS = {"причинна": r"причинн(?:а|ої|ій|у|ою)"}
 TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
 QUOTE_RE = re.compile(r'«([^»]*)»|“([^”]*)”|"([^"]*)"')
 WORK_LABEL_RE = re.compile(
@@ -168,6 +169,8 @@ def normalize(text: str) -> str:
 
 def title_pattern(title: str) -> str:
     normalized = normalize(title)
+    if normalized in TITLE_PATTERN_EXCEPTIONS:
+        return TITLE_PATTERN_EXCEPTIONS[normalized]
     if " " not in normalized and len(normalized) >= 5:
         if normalized.endswith("а"):
             if normalized.endswith("ка"):

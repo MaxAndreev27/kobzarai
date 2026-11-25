@@ -74,6 +74,31 @@ class HybridAnswerTests(unittest.TestCase):
         self.assertIn("не доводить", unknown[1]["content"])
         self.assertNotIn("<джерела>", unknown[1]["content"])
 
+    def test_source_guard_only_refuses_without_sources(self):
+        report, corpus, cases = fixture()
+        prepared = run_hybrid_answers.prepare_cases(report, corpus, cases)
+        answer = "Відповідь моделі"
+        self.assertEqual(
+            run_hybrid_answers.source_guard_answer("matched", prepared[0][1], answer),
+            answer,
+        )
+        self.assertEqual(
+            run_hybrid_answers.source_guard_answer("not_found", [], answer),
+            run_hybrid_answers.NO_SOURCE_REFUSAL,
+        )
+        self.assertEqual(
+            run_hybrid_answers.source_guard_answer("ambiguous", [], answer),
+            run_hybrid_answers.AMBIGUOUS_REFUSAL,
+        )
+        report["validation_results"][0]["hybrid"]["hits"] = []
+        report["validation_results"][0]["confidence"] = None
+        report["validation_results"][0]["accepted"] = False
+        no_hits = run_hybrid_answers.prepare_cases(report, corpus, cases)[0]
+        self.assertEqual(
+            run_hybrid_answers.source_guard_answer("matched", no_hits[1], answer),
+            run_hybrid_answers.NO_SOURCE_REFUSAL,
+        )
+
     def test_rejects_mismatched_hashes_offsets_and_decisions(self):
         report, corpus, cases = fixture()
         with self.assertRaisesRegex(ValueError, "Corpus does not match"):
@@ -148,6 +173,10 @@ class HybridAnswerTests(unittest.TestCase):
             self.assertEqual(records[2]["gated_answer"], evaluate_hybrid.REFUSAL)
             self.assertEqual(
                 records[2]["ungated_response"]["message"]["content"], "Відповідь моделі"
+            )
+            self.assertEqual(records[1]["source_guard_answer"], "Відповідь моделі")
+            self.assertEqual(
+                records[2]["source_guard_answer"], run_hybrid_answers.NO_SOURCE_REFUSAL
             )
 
 
