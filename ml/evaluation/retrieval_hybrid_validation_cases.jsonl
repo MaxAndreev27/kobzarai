@@ -1,0 +1,18 @@
+{"id":"validation-topolia-wind","query":"Що робить вітер із деревом біля дороги в «Тополі»?","work_id":784,"evidence":"Край дороги гне тополю\nДо самого долу."}
+{"id":"validation-topolia-love","query":"Кого покохала дівчина у творі «Тополя»?","work_id":784,"evidence":"Полюбила чорнобрива\nКозака дівчина."}
+{"id":"validation-topolia-passers","query":"Хто проходить повз самотнє дерево в поемі «Тополя»?","work_id":784,"evidence":"Чумак іде, подивиться\nТа й голову схилить,"}
+{"id":"validation-prychynna-river","query":"Яку картину річки та вітру зображено у «Причинній»?","work_id":774,"evidence":"Реве та стогне Дніпр широкий,\nСердитий вітер завива,"}
+{"id":"validation-prychynna-waiting","query":"На кого чекає дівчина в баладі «Причинна»?","work_id":774,"evidence":"Спала й виглядала\nКозаченька молодого,"}
+{"id":"validation-dolia-school","query":"До кого доля відвела хлопця навчатися у вірші «Доля»?","work_id":3992,"evidence":"І в школу хлопця одвела\nДо п'яного дяка в науку."}
+{"id":"validation-naimychka-old-couple","query":"Чому старі сумують через відсутність дітей у «Наймичці»?","work_id":763,"evidence":"Та діточок у їх бігма,\nА смерть з косою за плечима."}
+{"id":"validation-kateryna-belongings","query":"Що несе молодиця дорогою у творі «Катерина»?","work_id":742,"evidence":"На плечах торбина,\nВ руці ціпок, а на другій\nЗаснула дитина."}
+{"id":"validation-kavkaz-knights","query":"Як поет звертається до лицарів у «Кавказі»?","work_id":741,"evidence":"І вам, лицарі великі,\nБогом не забуті."}
+{"id":"validation-zavit-memory","query":"Як просить згадати себе поет у «Заповіті»?","work_id":729,"evidence":"Не забудьте пом'янути\nНезлим тихим словом."}
+{"id":"validation-no-car","query":"Яку марку автомобіля мав козак у баладі «Причинна»?","work_id":774,"answerable":false}
+{"id":"validation-no-phone","query":"Який номер телефону названо у вірші «Тополя»?","work_id":784,"answerable":false}
+{"id":"validation-no-university","query":"В якому університеті навчався герой після школи у вірші «Доля»?","work_id":3992,"answerable":false}
+{"id":"validation-no-queen","query":"Який подарунок наймичці Ганні передала королева Британії у творі «Наймичка»?","work_id":763,"answerable":false}
+{"id":"validation-no-birthplace","query":"Як називається село, де народилась героїня поеми «Катерина»?","work_id":742,"answerable":false}
+{"id":"validation-no-year","query":"У якому році Прометей повернувся додому в поемі «Кавказ»?","work_id":741,"answerable":false}
+{"id":"validation-unknown","query":"Про що вірш «Срібний трамвай часу»?","expected_status":"not_found"}
+{"id":"validation-ambiguous","query":"Порівняй «Тополя» і «Причинна».","expected_status":"ambiguous"}
