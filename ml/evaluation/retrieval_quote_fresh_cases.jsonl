@@ -1,0 +1,12 @@
+{"id":"fresh-quote-kavkaz-word","split":"development","messages":[{"role":"user","content":"З якого твору рядки «Не скує душі живої і слова живого»?"}],"expected_status":"matched","expected_work_id":741,"expected_title":"Кавказ"}
+{"id":"fresh-quote-zavit-burial","split":"development","messages":[{"role":"user","content":"Звідки цитата «Як умру, то поховайте мене на могилі»?"}],"expected_status":"matched","expected_work_id":729,"expected_title":"Заповіт"}
+{"id":"fresh-quote-prychynna-fate","split":"development","messages":[{"role":"user","content":"Назви твір за словами «Така його доля, дарма щоніч дівчинонька»."}],"expected_status":"matched","expected_work_id":774,"expected_title":"Причинна"}
+{"id":"fresh-quote-mohyla-prayer","split":"development","messages":[{"role":"user","content":"З якого твору «Чи ти рано до схід сонця Богу не молилась»?"}],"expected_status":"matched","expected_work_id":23446,"expected_title":"Розрита могила"}
+{"id":"fresh-quote-poslanie-brothers","split":"development","messages":[{"role":"user","content":"Де написано «Розкуйтеся, братайтеся! У чужому краю»?"}],"expected_status":"matched","expected_work_id":708,"expected_title":"І мертвим, і живим, і ненарожденним..."}
+{"id":"fresh-quote-topolia-field","split":"development","messages":[{"role":"user","content":"Якому твору належать слова «Кругом поле, як те море широке синіє»?"}],"expected_status":"matched","expected_work_id":784,"expected_title":"Тополя"}
+{"id":"fresh-quote-ambiguous-heart","split":"development","messages":[{"role":"user","content":"Звідки «Серце рвалося, сміялось, виливало мову»?"}],"expected_status":"ambiguous"}
+{"id":"fresh-quote-kavkaz-mountains","split":"development","messages":[{"role":"user","content":"Звідки «ЗА ГОРАМИ ГОРИ, ХМАРОЮ ПОВИТІ»?"}],"expected_status":"matched","expected_work_id":741,"expected_title":"Кавказ"}
+{"id":"fresh-quote-altered","split":"development","messages":[{"role":"user","content":"Звідки «Не скує душі живої і слова вільного»?"}],"expected_status":"not_found"}
+{"id":"fresh-quote-short","split":"development","messages":[{"role":"user","content":"Де написано «Тихая ніч»?"}],"expected_status":"quote_too_short"}
+{"id":"fresh-quote-multiple","split":"development","messages":[{"role":"user","content":"Який це твір: «Як умру, то поховайте мене на могилі» — «Заповіт»?"}],"expected_status":"multiple_quotes"}
+{"id":"fresh-quote-absent","split":"development","messages":[{"role":"user","content":"З якого твору цей уривок?"}],"expected_status":"no_quote"}

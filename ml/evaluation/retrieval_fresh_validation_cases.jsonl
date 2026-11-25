@@ -1,0 +1,12 @@
+{"id":"fresh-zavit-view","query":"Що має бути видно з місця поховання у «Заповіті»?","work_id":729,"evidence":"Щоб лани широкополі,\nІ Дніпро, і кручі\nБуло видно","answerable":true}
+{"id":"fresh-kavkaz-eagle","query":"Що орел щодня довбе Прометеєві у «Кавказі»?","work_id":741,"evidence":"Що день божий довбе ребра\nЙ серце розбиває.","answerable":true}
+{"id":"fresh-prychynna-enchantment","query":"Хто зачарував дівчину у «Причинній»?","work_id":774,"evidence":"Так ворожка поробила,","answerable":true}
+{"id":"fresh-topolia-lonely","query":"З ким порівнюють самотню тополю в «Тополі»?","work_id":784,"evidence":"Одна, одна, як сирота\nНа чужині, гине!","answerable":true}
+{"id":"fresh-mohyla-digging","query":"Хто розриває могили у «Розритій могилі»?","work_id":23446,"evidence":"І могили мої милі\nМоскаль розриває","answerable":true}
+{"id":"fresh-dumy-souls","query":"Де, за словами поета в «Думи мої, думи мої», витають козацькі душі?","work_id":735,"evidence":"Нехай душі козацькії\nВ Украйні витають","answerable":true}
+{"id":"fresh-no-prychynna-name","query":"Як звати ворожку у «Причинній»?","work_id":774,"answerable":false}
+{"id":"fresh-no-zavit-hill","query":"Як називається могила, на якій просить поховати себе поет у «Заповіті»?","work_id":729,"answerable":false}
+{"id":"fresh-no-topolia-age","query":"Скільки років дівчині у «Тополі»?","work_id":784,"answerable":false}
+{"id":"fresh-no-kavkaz-year","query":"У якому році орел почав карати Прометея у «Кавказі»?","work_id":741,"answerable":false}
+{"id":"fresh-title-unknown","query":"Про що вірш «Таємниця бурштинового годинника»?","expected_status":"not_found"}
+{"id":"fresh-title-multiple","query":"Порівняй «Кавказ» і «Заповіт».","expected_status":"ambiguous"}
