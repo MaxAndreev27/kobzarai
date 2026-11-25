@@ -132,7 +132,12 @@ class RunnerTests(unittest.TestCase):
             case = {
                 "id": "test-01",
                 "split": "development",
-                "messages": [{"role": "user", "content": "Про поему «Катерина»?"}],
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "Які слова про кохання в поемі «Катерина»?",
+                    }
+                ],
                 "source_ids": [999],
             }
             dataset.write_text(json.dumps(case, ensure_ascii=False), encoding="utf-8")
@@ -141,7 +146,7 @@ class RunnerTests(unittest.TestCase):
                     {
                         "id": 1,
                         "title": "Катерина",
-                        "text": "Текст твору.",
+                        "text": "У поемі є слова про кохання.",
                         "source": "https://example.org/1",
                     },
                     ensure_ascii=False,
@@ -185,9 +190,11 @@ class RunnerTests(unittest.TestCase):
             ]
             self.assertEqual(status, 0)
             self.assertTrue(metadata["rag"])
-            self.assertEqual(result["retrieval"]["id"], 1)
+            self.assertEqual(result["retrieval"]["status"], "matched")
+            self.assertEqual(result["retrieval"]["hits"][0]["id"], 1)
             self.assertIn(
-                "Текст твору.", post.call_args.kwargs["json"]["messages"][-1]["content"]
+                "У поемі є слова про кохання.",
+                post.call_args.kwargs["json"]["messages"][-1]["content"],
             )
 
 

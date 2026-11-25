@@ -59,6 +59,7 @@ def main() -> int:
         raise ValueError("No development cases found")
     corpus_data = retrieval.CORPUS.read_bytes() if args.rag else None
     corpus = retrieval.load_corpus(corpus_data) if corpus_data is not None else None
+    chunks = retrieval.build_chunks(corpus) if corpus is not None else None
 
     version_response = requests.get(f"{API}/version", timeout=10)
     version_response.raise_for_status()
@@ -104,26 +105,38 @@ def main() -> int:
         write_record(output, metadata)
         for index, case in enumerate(cases, 1):
             messages = [{"role": "system", "content": SYSTEM_PROMPT}, *case["messages"]]
-            retrieval_info: dict[str, int | str] | None = None
-            if corpus is not None:
+            retrieval_info: dict[str, object] | None = None
+            if corpus is not None and chunks is not None:
                 status, work = retrieval.find_work(
                     case["messages"][-1]["content"], corpus
                 )
                 retrieval_info = {"status": status}
                 if work is not None:
-                    fragment = retrieval.excerpt(work)
-                    retrieval_info.update(
+                    hits = retrieval.search_chunks(
+                        case["messages"][-1]["content"],
+                        chunks,
+                        work_id=work["id"],
+                        exclude_title=work["title"],
+                    )
+                    retrieval_info["hits"] = [
                         {
-                            "id": work["id"],
-                            "title": work["title"],
-                            "source": work["source"],
-                            "start_char": 0,
-                            "end_char": len(fragment),
+                            "id": hit["chunk"]["id"],
+                            "title": hit["chunk"]["title"],
+                            "source": hit["chunk"]["source"],
+                            "start_char": hit["chunk"]["start_char"],
+                            "end_char": hit["chunk"]["end_char"],
+                            "score": hit["score"],
                         }
+                        for hit in hits
+                    ]
+                    retrieval_info["status"] = (
+                        "matched" if hits else "no_relevant_chunk"
                     )
                     messages[-1] = {
                         "role": "user",
-                        "content": retrieval.add_context(messages[-1]["content"], work),
+                        "content": retrieval.add_chunk_context(
+                            messages[-1]["content"], hits
+                        ),
                     }
                 else:
                     messages[-1] = {

@@ -1,10 +1,13 @@
 import json
 import unittest
+from pathlib import Path
 
 import retrieval
 
 
-def work(identifier, title, text="Початок твору."):
+def work(
+    identifier: int, title: str, text: str = "Початок твору."
+) -> retrieval.Work:
     return {
         "id": identifier,
         "title": title,
@@ -25,6 +28,7 @@ class RetrievalTests(unittest.TestCase):
                 status, result = retrieval.find_work(query, corpus)
                 self.assertEqual(status, "matched")
                 self.assertIsNotNone(result)
+                assert result is not None
                 self.assertEqual(result["id"], expected)
 
     def test_unknown_boundary_and_ambiguous_names(self):
@@ -43,6 +47,7 @@ class RetrievalTests(unittest.TestCase):
         corpus = [work(1, "Берег"), work(2, "Берег мрій")]
         status, result = retrieval.find_work("Про «Берег мрій»", corpus)
         self.assertEqual(status, "matched")
+        assert result is not None
         self.assertEqual(result["id"], 2)
 
     def test_context_is_bounded_and_identifies_source(self):
@@ -64,6 +69,35 @@ class RetrievalTests(unittest.TestCase):
             retrieval.load_corpus(raw + b"\n" + raw)
         with self.assertRaises(ValueError):
             retrieval.load_corpus(b'{"id": 1}')
+
+    def test_retrieval_cases_find_the_expected_source_fragment(self):
+        project = Path(__file__).resolve().parents[1]
+        corpus = retrieval.load_corpus(retrieval.CORPUS.read_bytes())
+        chunks = retrieval.build_chunks(corpus)
+        cases = [
+            json.loads(line)
+            for line in (project / "evaluation/retrieval_cases.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ]
+        self.assertEqual(len(cases), 8)
+        for case in cases:
+            with self.subTest(case=case["id"]):
+                work = next(item for item in corpus if item["id"] == case["work_id"])
+                status, found = retrieval.find_work(case["query"], corpus)
+                self.assertEqual(status, "matched")
+                self.assertIsNotNone(found)
+                assert found is not None
+                self.assertEqual(found["id"], work["id"])
+                hits = retrieval.search_chunks(
+                    case["query"],
+                    chunks,
+                    work_id=work["id"],
+                    exclude_title=work["title"],
+                )
+                self.assertTrue(hits)
+                excerpt = "\n".join(hit["chunk"]["text"] for hit in hits)
+                self.assertIn(case["evidence"], excerpt)
 
 
 if __name__ == "__main__":
