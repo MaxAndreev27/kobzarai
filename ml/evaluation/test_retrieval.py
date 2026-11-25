@@ -17,6 +17,63 @@ def work(identifier: int, title: str, text: str = "Початок твору.") 
 
 
 class RetrievalTests(unittest.TestCase):
+    def test_quote_search_finds_original_chunks_without_title_or_expected_id(self):
+        corpus = [
+            work(1, "Твір перший", "Реве та стогне\nДніпр широкий, сердитий вітер."),
+            work(2, "Інший твір", "Це зовсім інший уривок."),
+        ]
+        chunks = retrieval.build_chunks(corpus)
+        status, hits = retrieval.search_quote(
+            "З якого твору «РЕВЕ ТА СТОГНЕ ДНІПР, широкий»?", corpus, chunks
+        )
+        self.assertEqual(status, "matched")
+        self.assertEqual(hits[0]["chunk"]["id"], 1)
+        self.assertEqual(hits[0]["chunk"]["text"], corpus[0]["text"])
+
+    def test_quote_search_rejects_missing_short_multiple_and_ambiguous_quotes(self):
+        quote = "Зелене поле вітер тихо колише"
+        corpus = [work(1, "Перший", quote), work(2, "Другий", quote)]
+        chunks = retrieval.build_chunks(corpus)
+        for query, expected in (
+            ("Знайди рядок без лапок", "no_quote"),
+            ("Знайди «Зелене поле»", "quote_too_short"),
+            ("Знайди «Я п'ю чай»", "quote_too_short"),
+            ("Знайди «Не знайдено таких рядків»", "not_found"),
+            ("Знайди «Зелене поле вітер тихо колише»", "ambiguous"),
+            (
+                "«Зелене поле вітер тихо колише» і «Ще одна довга цитата»",
+                "multiple_quotes",
+            ),
+        ):
+            with self.subTest(query=query):
+                status, hits = retrieval.search_quote(query, corpus, chunks)
+                self.assertEqual(status, expected)
+                self.assertEqual(hits, [])
+
+    def test_quote_search_requires_full_quote_in_a_chunk(self):
+        corpus = [work(1, "Перший", "один два три чотири п'ять шість")]
+        chunks = retrieval.build_chunks([work(1, "Перший", "один два три чотири")])
+        status, hits = retrieval.search_quote("«два три чотири п'ять»", corpus, chunks)
+        self.assertEqual(status, "no_relevant_chunk")
+        self.assertEqual(hits, [])
+
+    def test_quote_search_requires_word_boundaries(self):
+        corpus = [work(1, "Перший", "передмова зелене поле вітер тихо колише")]
+        status, hits = retrieval.search_quote(
+            "«мова зелене поле вітер»", corpus, retrieval.build_chunks(corpus)
+        )
+        self.assertEqual((status, hits), ("not_found", []))
+
+    def test_quote_in_overlapping_chunks_is_not_ambiguous(self):
+        text = "Слово " * 120 + "зелене поле вітер тихо колише " + "слово " * 100
+        corpus = [work(1, "Перший", text)]
+        status, hits = retrieval.search_quote(
+            "«зелене поле вітер тихо колише»", corpus, retrieval.build_chunks(corpus)
+        )
+        self.assertEqual(status, "matched")
+        self.assertEqual(len(hits), 2)
+        self.assertEqual({hit["chunk"]["id"] for hit in hits}, {1})
+
     def test_title_and_inflected_title_match(self):
         corpus = [
             work(1, "Катерина"),

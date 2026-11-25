@@ -1,4 +1,4 @@
-"""Conservative title lookup for the local poetry corpus."""
+"""Conservative title and quote lookup for the local poetry corpus."""
 
 import json
 import math
@@ -13,6 +13,7 @@ MAX_EXCERPT_CHARS = 1000
 DEFAULT_TOP_K = 2
 TITLE_PATTERN_EXCEPTIONS = {"причинна": r"причинн(?:а|ої|ій|у|ою)"}
 TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
+QUOTE_WORD_RE = re.compile(r"[^\W_]+(?:['’ʼ][^\W_]+)*", re.UNICODE)
 QUOTE_RE = re.compile(r'«([^»]*)»|“([^”]*)”|"([^"]*)"')
 WORK_LABEL_RE = re.compile(
     r"\b(?:твір|твор\w*|поем\w*|вірш\w*|збірк\w*)\s*$", re.IGNORECASE
@@ -284,6 +285,39 @@ def _chunks_for_work(work: Work) -> list[Chunk]:
 
 def build_chunks(corpus: list[Work]) -> list[Chunk]:
     return [chunk for work in corpus for chunk in _chunks_for_work(work)]
+
+
+def search_quote(
+    query: str, corpus: list[Work], chunks: list[Chunk], *, top_k: int = DEFAULT_TOP_K
+) -> tuple[str, list[SearchHit]]:
+    if top_k < 1:
+        raise ValueError("top_k must be positive")
+    quotes = list(QUOTE_RE.finditer(query))
+    if not quotes:
+        return "no_quote", []
+    if len(quotes) != 1:
+        return "multiple_quotes", []
+    raw_quote = next(group for group in quotes[0].groups() if group is not None)
+    if len(QUOTE_WORD_RE.findall(raw_quote)) < 4:
+        return "quote_too_short", []
+    quote = normalize(raw_quote)
+    needle = f" {quote} "
+    matches = [work for work in corpus if needle in f" {normalize(work['text'])} "]
+    if not matches:
+        return "not_found", []
+    if len(matches) > 1:
+        return "ambiguous", []
+    matching_chunks = [
+        chunk
+        for chunk in chunks
+        if chunk["id"] == matches[0]["id"] and needle in f" {normalize(chunk['text'])} "
+    ]
+    if not matching_chunks:
+        return "no_relevant_chunk", []
+    matching_chunks.sort(key=lambda chunk: chunk["start_char"])
+    return "matched", [
+        SearchHit(chunk=chunk, score=1.0) for chunk in matching_chunks[:top_k]
+    ]
 
 
 def _terms(text: str, excluded: set[str] | None = None) -> list[str]:

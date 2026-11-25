@@ -197,6 +197,115 @@ class RunnerTests(unittest.TestCase):
                 post.call_args.kwargs["json"]["messages"][-1]["content"],
             )
 
+    def test_quote_mode_uses_found_sources_and_refuses_ambiguous_without_generation(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output, dataset, corpus = (
+                root / name for name in ("output", "cases", "corpus")
+            )
+            cases = [
+                {
+                    "id": "unique",
+                    "split": "development",
+                    "messages": [
+                        {"role": "user", "content": "Знайди «Вітер гне дерево донизу»."}
+                    ],
+                    "source_ids": [999],
+                },
+                {
+                    "id": "ambiguous",
+                    "split": "development",
+                    "messages": [
+                        {"role": "user", "content": "Знайди «Раз два три чотири»."}
+                    ],
+                },
+                {
+                    "id": "held-out",
+                    "split": "holdout",
+                    "messages": [
+                        {"role": "user", "content": "Знайди «Вітер гне дерево донизу»."}
+                    ],
+                },
+            ]
+            works = [
+                {
+                    "id": 1,
+                    "title": "Перший",
+                    "text": "Вітер гне дерево донизу.\nРаз два три чотири.",
+                    "source": "https://example.org/1",
+                },
+                {
+                    "id": 2,
+                    "title": "Другий",
+                    "text": "Раз два три чотири.",
+                    "source": "https://example.org/2",
+                },
+            ]
+            dataset.write_text(
+                "".join(json.dumps(case, ensure_ascii=False) + "\n" for case in cases),
+                encoding="utf-8",
+            )
+            corpus.write_text(
+                "".join(json.dumps(work, ensure_ascii=False) + "\n" for work in works),
+                encoding="utf-8",
+            )
+            response = Response({"done": True, "message": {"content": "Перший"}})
+            with (
+                patch.object(run_ollama.retrieval, "CORPUS", corpus),
+                patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "run_ollama.py",
+                        "--rag",
+                        "--quote-search",
+                        "--dataset",
+                        str(dataset),
+                        "--output",
+                        str(output),
+                    ],
+                ),
+                patch.object(
+                    run_ollama.requests,
+                    "get",
+                    side_effect=[
+                        Response({"version": "test"}),
+                        Response(
+                            {"models": [{"name": "qwen3:1.7b", "digest": "test"}]}
+                        ),
+                    ],
+                ),
+                patch.object(
+                    run_ollama.requests, "post", return_value=response
+                ) as post,
+            ):
+                status = run_ollama.main()
+            records = [
+                json.loads(line)
+                for line in output.read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertEqual(status, 0)
+            self.assertEqual(post.call_count, 1)
+            self.assertTrue(records[0]["quote_search"])
+            self.assertEqual(records[0]["case_count"], 2)
+            self.assertEqual(
+                records[0]["system_prompt"], run_ollama.QUOTE_SYSTEM_PROMPT
+            )
+            self.assertEqual(records[1]["retrieval"]["hits"][0]["id"], 1)
+            self.assertIn(
+                "Вітер гне дерево донизу.",
+                post.call_args.kwargs["json"]["messages"][-1]["content"],
+            )
+            self.assertIn(
+                "Назва знайденого твору: «Перший».",
+                post.call_args.kwargs["json"]["messages"][-1]["content"],
+            )
+            self.assertEqual(records[2]["type"], "refusal")
+            self.assertEqual(records[2]["retrieval"]["status"], "ambiguous")
+            self.assertIn("кількох записах", records[2]["answer"])
+
 
 if __name__ == "__main__":
     unittest.main()

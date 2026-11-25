@@ -1,0 +1,16 @@
+{"id":"quote-zavit-chains","query":"З якого твору рядки «Кайдани порвіте і вражою злою кров'ю»?","expected_status":"matched","work_id":729}
+{"id":"quote-kavkaz-soul","query":"У якому творі є «Не вмирає душа наша, не вмирає воля»?","expected_status":"matched","work_id":741}
+{"id":"quote-kateryna-parents","query":"Допоможи знайти рядки «Не слухала Катерина ні батька ні неньки».","expected_status":"matched","work_id":742}
+{"id":"quote-naimychka-fog","query":"Звідки рядки «У неділю вранці-рано поле вкрилося туманом»?","expected_status":"matched","work_id":763}
+{"id":"quote-topolia-chumak","query":"З якого твору «Чумак іде, подивиться та й голову схилить»?","expected_status":"matched","work_id":784}
+{"id":"quote-dolia-family","query":"У якому вірші «Ти другом, братом і сестрою сіромі стала»?","expected_status":"matched","work_id":3992}
+{"id":"quote-prychynna-moon","query":"Звідки цитата «І блідний місяць на ту пору»?","expected_status":"matched","work_id":774}
+{"id":"quote-zavit-fields","query":"З якого твору «ЩОБ ЛАНИ ШИРОКОПОЛІ І ДНІПРО І КРУЧІ»?","expected_status":"matched","work_id":729}
+{"id":"quote-prychynna-gate","query":"Підкажи твір за рядками «Близько хата, де дівчина ворота одчинить».","expected_status":"matched","work_id":774}
+{"id":"quote-kateryna-love","query":"Який твір містить рядки «Кохайтеся, чорнобриві, та не з москалями»?","expected_status":"matched","work_id":742}
+{"id":"quote-ambiguous-dnipro","query":"З якого твору рядки «Реве та стогне Дніпр широкий»?","expected_status":"ambiguous"}
+{"id":"quote-ambiguous-dumy","query":"Де є рядки «Нащо стали на папері сумними рядами»?","expected_status":"ambiguous"}
+{"id":"quote-missing","query":"Знайди «Сяє між зірками срібний трамвай часу».","expected_status":"not_found"}
+{"id":"quote-short","query":"Знайди «Тиха ніч».","expected_status":"quote_too_short"}
+{"id":"quote-multiple","query":"Порівняй «Встане правда встане воля» та «І блідний місяць на ту пору».","expected_status":"multiple_quotes"}
+{"id":"quote-unquoted","query":"Знайди рядок, який я ще не процитував.","expected_status":"no_quote"}
