@@ -21,7 +21,7 @@ uv sync --project ml
 uv sync --project backend
 uv run --project ml ruff check ml/evaluation backend
 uv run --project ml python -m unittest discover -s ml/evaluation -p 'test_*.py'
-uv run --project backend python -m unittest backend.test_main
+uv run --project backend python -m unittest discover -s backend -p 'test_*.py'
 ```
 
 Run these commands from the repository root. See the

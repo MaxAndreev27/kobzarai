@@ -1,0 +1,12 @@
+{"id":"api-followup-dolia-promise","query":"Що обіцяла доля хлопцеві, якщо він навчатиметься, у вірші «Доля»?","work_id":3992,"evidence":"З нас будуть люде","answerable":true}
+{"id":"api-followup-zavit-request","query":"Яким словом поет просить його пом'янути в «Заповіті»?","work_id":729,"evidence":"Незлим тихим словом","answerable":true}
+{"id":"api-followup-kavkaz-belief","query":"Що, за поетом «Кавказу», встане разом із правдою?","work_id":741,"evidence":"Встане правда! Встане воля!","answerable":true}
+{"id":"api-followup-topolia-instrument","query":"Який інструмент має чабан у «Тополі»?","work_id":784,"evidence":"Чабан вранці з сопілкою","answerable":true}
+{"id":"api-followup-prychynna-birds","query":"Які птахи перекликаються в гаю у «Причинній»?","work_id":774,"evidence":"Сичі в гаю перекликались","answerable":true}
+{"id":"api-followup-mohyla-clothes","query":"Що перевертні допомагають знімати з матері у «Розритій могилі»?","work_id":23446,"evidence":"Сорочку знімати","answerable":true}
+{"id":"api-followup-no-dolia-dyak","query":"Яке ім'я дяка згадано у вірші «Доля»?","work_id":3992,"answerable":false}
+{"id":"api-followup-no-zavit-burial-date","query":"Яку дату поховання названо в «Заповіті»?","work_id":729,"answerable":false}
+{"id":"api-followup-no-kavkaz-eagle-color","query":"Якого кольору орел, який карає Прометея у «Кавказі»?","work_id":741,"answerable":false}
+{"id":"api-followup-no-mohyla-traitor-name","query":"Як звати перевертня, який допомагає розривати могили у «Розритій могилі»?","work_id":23446,"answerable":false}
+{"id":"api-followup-unknown","query":"Про що вірш «Сонячні скрипалі Нептуна»?","expected_status":"not_found"}
+{"id":"api-followup-ambiguous","query":"Порівняй «Кавказ» та «Причинна».","expected_status":"ambiguous"}

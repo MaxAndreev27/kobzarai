@@ -9,7 +9,11 @@ from pathlib import Path
 from typing import NotRequired, TypedDict
 
 import requests
-import retrieval
+
+if __package__:
+    from . import retrieval
+else:
+    import retrieval
 
 API = "http://127.0.0.1:11434/api"
 CASES = Path(__file__).with_name("retrieval_semantic_cases.jsonl")

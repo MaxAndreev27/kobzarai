@@ -9,8 +9,9 @@ from typing import Literal
 
 import requests
 from fastapi import FastAPI, HTTPException, Request
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
+from backend.hybrid import HybridSearch
 from ml.evaluation import retrieval
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +49,8 @@ logger = logging.getLogger(__name__)
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     mode: Literal["title", "quote"]
+    retrieval_method: Literal["lexical", "hybrid"] = "lexical"
+    answer_mode: Literal["generated", "sources"] = "generated"
 
     @field_validator("question")
     @classmethod
@@ -55,6 +58,12 @@ class ChatRequest(BaseModel):
         if not value.strip():
             raise ValueError("Question must not be blank")
         return value
+
+    @model_validator(mode="after")
+    def hybrid_requires_title(self) -> "ChatRequest":
+        if self.mode == "quote" and self.retrieval_method != "lexical":
+            raise ValueError("Hybrid retrieval is only available in title mode")
+        return self
 
 
 class Source(BaseModel):
@@ -68,8 +77,9 @@ class Source(BaseModel):
 
 class ChatResponse(BaseModel):
     experimental: Literal[True] = True
-    status: Literal["generated", "refused"]
+    status: Literal["generated", "sources", "refused"]
     retrieval_status: str
+    retrieval_method: Literal["lexical", "hybrid"]
     answer: str
     sources: list[Source]
     model: str | None
@@ -82,6 +92,7 @@ async def lifespan(app: FastAPI):
     app.state.corpus = retrieval.load_corpus(data)
     app.state.chunks = retrieval.build_chunks(app.state.corpus)
     app.state.corpus_sha256 = hashlib.sha256(data).hexdigest()
+    app.state.hybrid_search = HybridSearch()
     yield
 
 
@@ -93,15 +104,33 @@ def find_sources(
     mode: Literal["title", "quote"],
     corpus: list[retrieval.Work],
     chunks: list[retrieval.Chunk],
+    retrieval_method: Literal["lexical", "hybrid"] = "lexical",
+    hybrid_search: HybridSearch | None = None,
 ) -> tuple[str, list[retrieval.SearchHit]]:
     if mode == "quote":
         return retrieval.search_quote(question, corpus, chunks)
     status, work = retrieval.find_work(question, corpus)
     if work is None:
         return status, []
-    hits = retrieval.search_chunks(
-        question, chunks, work_id=work["id"], exclude_title=work["title"]
-    )
+    if retrieval_method == "hybrid":
+        if hybrid_search is None:
+            raise ValueError("Hybrid retrieval is not initialized")
+        try:
+            hits = hybrid_search.search(question, work, chunks)
+        except requests.Timeout as exc:
+            logger.warning("Hybrid retrieval timed out: %s", exc)
+            raise HTTPException(
+                status_code=504, detail="Hybrid retrieval timed out"
+            ) from exc
+        except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+            logger.warning("Hybrid retrieval failed: %s", exc)
+            raise HTTPException(
+                status_code=502, detail="Hybrid retrieval failed"
+            ) from exc
+    else:
+        hits = retrieval.search_chunks(
+            question, chunks, work_id=work["id"], exclude_title=work["title"]
+        )
     return ("matched", hits) if hits else ("no_relevant_chunk", [])
 
 
@@ -153,12 +182,18 @@ def generate_answer(
 @app.post("/chat", response_model=ChatResponse)
 def chat(body: ChatRequest, request: Request) -> ChatResponse:
     status, hits = find_sources(
-        body.question, body.mode, request.app.state.corpus, request.app.state.chunks
+        body.question,
+        body.mode,
+        request.app.state.corpus,
+        request.app.state.chunks,
+        body.retrieval_method,
+        request.app.state.hybrid_search,
     )
     if not hits:
         return ChatResponse(
             status="refused",
             retrieval_status=status,
+            retrieval_method=body.retrieval_method,
             answer=REFUSALS[status],
             sources=[],
             model=None,
@@ -176,10 +211,15 @@ def chat(body: ChatRequest, request: Request) -> ChatResponse:
         for hit in hits
     ]
     return ChatResponse(
-        status="generated",
+        status=body.answer_mode,
         retrieval_status=status,
-        answer=generate_answer(body.question, body.mode, hits),
+        retrieval_method=body.retrieval_method,
+        answer=(
+            generate_answer(body.question, body.mode, hits)
+            if body.answer_mode == "generated"
+            else "Знайдені фрагменти можуть не містити відповіді; перевірте їх самостійно."
+        ),
         sources=sources,
-        model=MODEL,
+        model=MODEL if body.answer_mode == "generated" else None,
         corpus_sha256=request.app.state.corpus_sha256,
     )

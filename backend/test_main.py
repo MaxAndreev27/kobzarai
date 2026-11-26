@@ -164,6 +164,82 @@ class ApiTests(unittest.TestCase):
         ):
             pass
 
+    def test_hybrid_search_and_sources_mode_do_not_call_chat_model(self):
+        body = {
+            "mode": "title",
+            "question": "Яка річка у «Розритій могилі»?",
+            "retrieval_method": "hybrid",
+            "answer_mode": "sources",
+        }
+        with TestClient(main.app) as client:
+            chunk = client.app.state.chunks[0]
+            with (
+                patch.object(
+                    client.app.state.hybrid_search,
+                    "search",
+                    return_value=[{"chunk": chunk, "score": 0.1}],
+                ) as search,
+                patch.object(main.requests, "post") as post,
+            ):
+                response = client.post("/chat", json=body)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "sources")
+        self.assertEqual(response.json()["retrieval_method"], "hybrid")
+        self.assertEqual(response.json()["sources"][0]["id"], 1)
+        self.assertIsNone(response.json()["model"])
+        self.assertIn("можуть не містити відповіді", response.json()["answer"])
+        self.assertEqual(search.call_count, 1)
+        post.assert_not_called()
+
+    def test_hybrid_failure_is_explicit_and_never_falls_back(self):
+        with TestClient(main.app) as client:
+            with (
+                patch.object(
+                    client.app.state.hybrid_search,
+                    "search",
+                    side_effect=requests.ConnectionError("unavailable"),
+                ),
+                patch.object(main, "generate_answer") as generate,
+            ):
+                response = client.post(
+                    "/chat",
+                    json={
+                        "mode": "title",
+                        "question": "Що у «Розритій могилі»?",
+                        "retrieval_method": "hybrid",
+                    },
+                )
+            self.assertEqual(response.status_code, 502)
+            generate.assert_not_called()
+            self.assertEqual(
+                client.post(
+                    "/chat",
+                    json={
+                        "mode": "quote",
+                        "question": "«Дніпро брат мій висихає»",
+                        "retrieval_method": "hybrid",
+                    },
+                ).status_code,
+                422,
+            )
+
+    def test_sources_mode_preserves_quote_refusal(self):
+        with (
+            TestClient(main.app) as client,
+            patch.object(main.requests, "post") as post,
+        ):
+            result = client.post(
+                "/chat",
+                json={
+                    "mode": "quote",
+                    "question": "«Цей рядок існує у двох записах»",
+                    "answer_mode": "sources",
+                },
+            )
+        self.assertEqual(result.json()["status"], "refused")
+        self.assertEqual(result.json()["retrieval_status"], "ambiguous")
+        post.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,9 +7,14 @@ import math
 import time
 from pathlib import Path
 
-import compare_retrieval as comparison
 import requests
-import retrieval
+
+if __package__:
+    from . import compare_retrieval as comparison
+    from . import retrieval
+else:
+    import compare_retrieval as comparison
+    import retrieval
 
 VALIDATION = Path(__file__).with_name("retrieval_hybrid_validation_cases.jsonl")
 RRF_K = 60
