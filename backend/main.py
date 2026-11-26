@@ -1,4 +1,4 @@
-"""Local, experimental source-grounded single-turn API."""
+"""Local, experimental single-turn API."""
 
 import hashlib
 import logging
@@ -35,6 +35,15 @@ SYSTEM_PROMPT = (
     "Не вигадуй фактів чи цитат і не роби висновків про відсутність фактів "
     "в усьому творі або корпусі."
 )
+UNGROUNDED_SYSTEM_PROMPT = (
+    "Ти — ШІ-співрозмовник, натхненний Тарасом Шевченком, а не історична "
+    "особа. Не називай себе людиною чи Шевченком і не приписуй собі "
+    "людських почуттів або досвіду. Відповідай українською стисло. "
+    "Джерел до цього запитання не "
+    "знайдено: не вигадуй цитат, фактів або особистих поглядів Шевченка. "
+    "Не узагальнюй щодо груп людей і не приписуй їм негативних рис. "
+    "Якщо не знаєш відповіді, чесно скажи про це."
+)
 REFUSALS = {
     "no_quote": "Наведіть одну цитату в лапках.",
     "multiple_quotes": "Наведіть одну цитату за раз.",
@@ -48,9 +57,10 @@ logger = logging.getLogger(__name__)
 
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
-    mode: Literal["title", "quote"]
+    mode: Literal["title", "quote", "auto"]
     retrieval_method: Literal["lexical", "hybrid"] = "lexical"
     answer_mode: Literal["generated", "sources"] = "generated"
+    allow_ungrounded: bool = False
 
     @field_validator("question")
     @classmethod
@@ -77,7 +87,7 @@ class Source(BaseModel):
 
 class ChatResponse(BaseModel):
     experimental: Literal[True] = True
-    status: Literal["generated", "sources", "refused"]
+    status: Literal["generated", "ungrounded", "sources", "refused"]
     retrieval_status: str
     retrieval_method: Literal["lexical", "hybrid"]
     answer: str
@@ -137,13 +147,16 @@ def find_sources(
 def generate_answer(
     question: str, mode: Literal["title", "quote"], hits: list[retrieval.SearchHit]
 ) -> str:
-    prompt = retrieval.add_chunk_context(question, hits)
-    if mode == "quote":
+    prompt = retrieval.add_chunk_context(question, hits) if hits else question
+    if hits and mode == "quote":
         prompt += f"\n\nНазва знайденого твору: «{hits[0]['chunk']['title']}»."
     payload = {
         "model": MODEL,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT if hits else UNGROUNDED_SYSTEM_PROMPT,
+            },
             {"role": "user", "content": prompt},
         ],
         "stream": False,
@@ -181,19 +194,49 @@ def generate_answer(
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(body: ChatRequest, request: Request) -> ChatResponse:
-    status, hits = find_sources(
-        body.question,
-        body.mode,
-        request.app.state.corpus,
-        request.app.state.chunks,
-        body.retrieval_method,
-        request.app.state.hybrid_search,
-    )
+    mode: Literal["title", "quote"] = "title" if body.mode == "auto" else body.mode
+    method = body.retrieval_method
+    if body.mode == "auto":
+        quote_status, quote_hits = retrieval.search_quote(
+            body.question, request.app.state.corpus, request.app.state.chunks
+        )
+        if quote_hits or quote_status == "ambiguous":
+            mode = "quote"
+            method = "lexical"
+            status, hits = quote_status, quote_hits
+        else:
+            status, hits = find_sources(
+                body.question,
+                mode,
+                request.app.state.corpus,
+                request.app.state.chunks,
+                method,
+                request.app.state.hybrid_search,
+            )
+    else:
+        status, hits = find_sources(
+            body.question,
+            mode,
+            request.app.state.corpus,
+            request.app.state.chunks,
+            method,
+            request.app.state.hybrid_search,
+        )
     if not hits:
+        if body.answer_mode == "generated" and body.allow_ungrounded:
+            return ChatResponse(
+                status="ungrounded",
+                retrieval_status=status,
+                retrieval_method=method,
+                answer=generate_answer(body.question, mode, hits),
+                sources=[],
+                model=MODEL,
+                corpus_sha256=request.app.state.corpus_sha256,
+            )
         return ChatResponse(
             status="refused",
             retrieval_status=status,
-            retrieval_method=body.retrieval_method,
+            retrieval_method=method,
             answer=REFUSALS[status],
             sources=[],
             model=None,
@@ -213,9 +256,9 @@ def chat(body: ChatRequest, request: Request) -> ChatResponse:
     return ChatResponse(
         status=body.answer_mode,
         retrieval_status=status,
-        retrieval_method=body.retrieval_method,
+        retrieval_method=method,
         answer=(
-            generate_answer(body.question, body.mode, hits)
+            generate_answer(body.question, mode, hits)
             if body.answer_mode == "generated"
             else "Знайдені фрагменти можуть не містити відповіді; перевірте їх самостійно."
         ),

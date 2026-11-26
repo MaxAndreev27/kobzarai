@@ -138,6 +138,116 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(no_fragment.json()["status"], "refused")
         post.assert_not_called()
 
+    def test_opt_in_generates_without_sources_for_missing_or_ambiguous_results(self):
+        requests_to_try = [
+            {"mode": "title", "question": "Як справи?"},
+            {"mode": "title", "question": "«Розрита могила»"},
+            {"mode": "quote", "question": "«Цей рядок існує у двох записах»"},
+            {"mode": "quote", "question": "«Дніпро»"},
+        ]
+        with (
+            TestClient(main.app) as client,
+            patch.object(
+                main.requests, "post", return_value=self.model_response()
+            ) as post,
+        ):
+            for body in requests_to_try:
+                with self.subTest(body=body):
+                    response = client.post(
+                        "/chat", json={**body, "allow_ungrounded": True}
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    data = response.json()
+                    self.assertEqual(data["status"], "ungrounded")
+                    self.assertEqual(data["sources"], [])
+                    self.assertEqual(data["model"], main.MODEL)
+                    self.assertEqual(data["answer"], "Дніпро.")
+                    messages = post.call_args.kwargs["json"]["messages"]
+                    self.assertEqual(messages[0]["content"], main.UNGROUNDED_SYSTEM_PROMPT)
+                    self.assertEqual(messages[1]["content"], body["question"])
+        self.assertEqual(post.call_count, len(requests_to_try))
+
+    def test_ungrounded_fallback_respects_sources_mode_and_ollama_errors(self):
+        body = {"mode": "title", "question": "Як справи?", "allow_ungrounded": True}
+        with TestClient(main.app) as client:
+            with patch.object(main.requests, "post") as post:
+                response = client.post("/chat", json={**body, "answer_mode": "sources"})
+                self.assertEqual(response.json()["status"], "refused")
+                post.assert_not_called()
+            with patch.object(main.requests, "post", side_effect=requests.Timeout()):
+                self.assertEqual(client.post("/chat", json=body).status_code, 504)
+            invalid = self.model_response()
+            invalid.json.return_value["done_reason"] = "length"
+            with patch.object(main.requests, "post", return_value=invalid):
+                self.assertEqual(client.post("/chat", json=body).status_code, 502)
+
+    def test_auto_routes_quotes_and_titles_to_the_appropriate_search(self):
+        with (
+            TestClient(main.app) as client,
+            patch.object(main.requests, "post", return_value=self.model_response()),
+        ):
+            chunk = client.app.state.chunks[0]
+            with patch.object(
+                client.app.state.hybrid_search,
+                "search",
+                return_value=[{"chunk": chunk, "score": 0.1}],
+            ) as search:
+                body = {
+                    "mode": "auto",
+                    "retrieval_method": "hybrid",
+                    "allow_ungrounded": True,
+                }
+                title = client.post(
+                    "/chat",
+                    json={**body, "question": "Яка річка у «Розритій могилі»?"},
+                )
+                quote = client.post(
+                    "/chat",
+                    json={**body, "question": "Звідки «Дніпро брат мій висихає»?"},
+                )
+                general = client.post(
+                    "/chat", json={**body, "question": "Як справи?"}
+                )
+                ambiguous = client.post(
+                    "/chat",
+                    json={**body, "question": "«Цей рядок існує у двох записах»"},
+                )
+        self.assertEqual(title.status_code, 200)
+        self.assertEqual(title.json()["status"], "generated")
+        self.assertEqual(title.json()["retrieval_method"], "hybrid")
+        self.assertEqual(title.json()["sources"][0]["id"], 1)
+        self.assertEqual(search.call_count, 1)
+        self.assertEqual(quote.json()["status"], "generated")
+        self.assertEqual(quote.json()["retrieval_method"], "lexical")
+        self.assertEqual(quote.json()["sources"][0]["id"], 1)
+        self.assertEqual(general.json()["status"], "ungrounded")
+        self.assertEqual(general.json()["sources"], [])
+        self.assertEqual(ambiguous.json()["status"], "ungrounded")
+        self.assertEqual(ambiguous.json()["retrieval_status"], "ambiguous")
+        self.assertEqual(ambiguous.json()["sources"], [])
+
+    def test_auto_hybrid_failure_is_not_treated_as_missing_sources(self):
+        with TestClient(main.app) as client:
+            with (
+                patch.object(
+                    client.app.state.hybrid_search,
+                    "search",
+                    side_effect=requests.ConnectionError("unavailable"),
+                ),
+                patch.object(main, "generate_answer") as generate,
+            ):
+                response = client.post(
+                    "/chat",
+                    json={
+                        "mode": "auto",
+                        "question": "Яка річка у «Розритій могилі»?",
+                        "retrieval_method": "hybrid",
+                        "allow_ungrounded": True,
+                    },
+                )
+        self.assertEqual(response.status_code, 502)
+        generate.assert_not_called()
+
     def test_ollama_failure_and_truncated_answer_are_errors(self):
         request = {"mode": "quote", "question": "«Дніпро брат мій висихає»"}
         response = self.model_response()
