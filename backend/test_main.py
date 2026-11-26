@@ -223,6 +223,24 @@ class ApiTests(unittest.TestCase):
                 422,
             )
 
+    def test_invalid_embedding_service_response_and_timeout_are_errors(self):
+        body = {
+            "mode": "title",
+            "question": "Що у «Розритій могилі»?",
+            "retrieval_method": "hybrid",
+        }
+        response = Mock()
+        response.json.return_value = {"models": [None]}
+        with (
+            TestClient(main.app) as client,
+            patch.object(main, "generate_answer") as generate,
+        ):
+            with patch("backend.hybrid.requests.get", return_value=response):
+                self.assertEqual(client.post("/chat", json=body).status_code, 502)
+            with patch("backend.hybrid.requests.get", side_effect=requests.Timeout()):
+                self.assertEqual(client.post("/chat", json=body).status_code, 504)
+            generate.assert_not_called()
+
     def test_sources_mode_preserves_quote_refusal(self):
         with (
             TestClient(main.app) as client,
