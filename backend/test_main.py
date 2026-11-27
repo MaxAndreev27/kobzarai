@@ -247,13 +247,13 @@ class ApiTests(unittest.TestCase):
                 "id": 10,
                 "title": "Перший твір",
                 "source": "https://example.org/10",
-                "text": "Жид живе.\nЗгадка жида.\nБез збігу.",
+                "text": "Сад шумить.\nЗатінок саду.\nБез збігу.",
             },
             {
                 "id": 11,
                 "title": "Другий твір",
                 "source": "https://example.org/11",
-                "text": "Жиди, жидівською мовою.",
+                "text": "Сади, за садами.",
             },
         ]
         with (
@@ -271,7 +271,15 @@ class ApiTests(unittest.TestCase):
                 "/chat",
                 json={
                     **body,
-                    "question": 'Знайди всі місця у творах де зустрічається слово "жид"',
+                    "question": 'Знайди всі місця у творах де зустрічається слово "сад"',
+                },
+            )
+            unquoted = client.post(
+                "/chat",
+                json={
+                    **body,
+                    "question": "знайди у творах всі випадки коли "
+                    "зустрічаеється слово сад",
                 },
             )
             missing = client.post(
@@ -286,12 +294,15 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(data["status"], "sources")
         self.assertEqual(data["retrieval_status"], "term_matches")
-        self.assertIn("Збігів з основою «жид» у корпусі: 4", data["answer"])
+        self.assertIn("Збігів з основою «сад» у корпусі: 4", data["answer"])
         self.assertIn("рядків з такими збігами: 3", data["answer"])
         self.assertEqual(
             [source["text"] for source in data["sources"]],
-            ["Жид живе.", "Згадка жида.", "Жиди, жидівською мовою."],
+            ["Сад шумить.", "Затінок саду.", "Сади, за садами."],
         )
+        self.assertEqual(unquoted.status_code, 200)
+        self.assertEqual(unquoted.json()["retrieval_status"], "term_matches")
+        self.assertEqual(unquoted.json()["sources"], data["sources"])
         self.assertIsNone(data["model"])
         self.assertEqual(missing.status_code, 200)
         self.assertEqual(missing.json()["retrieval_status"], "term_not_found")

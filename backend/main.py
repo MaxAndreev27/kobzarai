@@ -66,6 +66,7 @@ ALL_OCCURRENCES_REQUEST = re.compile(
     r"\b(?:всі|усі)\s+(?:місц\w*|випадк\w*|згадк\w*)\b.*\bслово\b",
     re.IGNORECASE | re.DOTALL,
 )
+WORD_AFTER_LABEL = re.compile(r"\bслово\s+([^\W_]+)", re.IGNORECASE)
 
 
 class ChatRequest(BaseModel):
@@ -116,11 +117,17 @@ def find_word_occurrences(
         return None
 
     quotations = list(retrieval.QUOTE_RE.finditer(question))
-    if len(quotations) != 1:
-        return None
-    raw_term = next(
-        group for group in quotations[0].groups() if group is not None
-    ).strip()
+    if quotations:
+        if len(quotations) != 1:
+            return None
+        raw_term = next(
+            group for group in quotations[0].groups() if group is not None
+        ).strip()
+    else:
+        term_match = WORD_AFTER_LABEL.search(question)
+        if term_match is None:
+            return None
+        raw_term = term_match.group(1)
     terms = retrieval.QUOTE_WORD_RE.findall(raw_term)
     if len(terms) != 1 or terms[0].casefold() != raw_term.casefold():
         return None
