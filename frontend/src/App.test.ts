@@ -75,6 +75,32 @@ describe('chat form', () => {
     expect(wrapper.find('.source').exists()).toBe(false)
   })
 
+  it('renders all matching corpus places returned as sources', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...response,
+        status: 'sources',
+        retrieval_status: 'term_matches',
+        answer: 'Знайдено два місця.',
+        sources: [
+          response.sources[0],
+          { ...response.sources[0], start_char: 20, end_char: 35, text: 'Другий уривок.' },
+        ],
+        model: null,
+      }),
+    }))
+    const wrapper = mount(App)
+    await wrapper.get('textarea').setValue('Знайди всі місця зі словом')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.findAll('.source')).toHaveLength(2)
+    expect(wrapper.findAll('.source[open]')).toHaveLength(2)
+    expect(wrapper.get('.result-answer').text()).toBe('Знайдено два місця.')
+    expect(wrapper.text()).toContain('Другий уривок.')
+  })
+
   it('shows HTTP and invalid response errors rather than a result', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ ok: false, status: 502 })

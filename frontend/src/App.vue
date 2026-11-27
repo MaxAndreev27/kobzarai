@@ -36,6 +36,7 @@ const examples = [
 
 const canSubmit = computed(() => question.value.trim().length > 0 && !loading.value)
 const responseHeading = computed(() => {
+  if (result.value?.retrieval_status === 'term_not_found') return 'Збігів не знайдено'
   if (result.value?.status === 'sources') return 'Знайдені фрагменти'
   if (result.value?.status === 'refused') return 'Потрібне уточнення'
   if (result.value?.status === 'ungrounded') return 'Відповідь без джерел'
@@ -225,7 +226,7 @@ async function submitQuestion() {
           <p v-if="result.status === 'ungrounded'" class="result-warning">Джерело не знайдено або не вдалося визначити однозначно. Це загальна відповідь ШІ без підтвердження корпусом; вона може містити помилки.</p>
           <p v-if="result.sources.length" class="sources-heading">ЗНАЙДЕНІ ФРАГМЕНТИ <span>{{ String(result.sources.length).padStart(2, '0') }}</span></p>
           <details v-for="(source, index) in result.sources" :key="`${source.id}-${source.start_char}-${source.end_char}`" class="source" open>
-            <summary><span><span class="source-number">0{{ index + 1 }}</span> {{ source.title }}</span><span class="settings-plus" aria-hidden="true">+</span></summary>
+            <summary><span><span class="source-number">{{ String(index + 1).padStart(2, '0') }}</span> {{ source.title }}</span><span class="settings-plus" aria-hidden="true">+</span></summary>
             <div class="source-content">
               <p>{{ source.text }}</p>
               <a v-if="sourceUrl(source.url)" :href="sourceUrl(source.url)" target="_blank" rel="noopener noreferrer">Відкрити джерело ↗</a>

@@ -84,6 +84,11 @@ class ApiTests(unittest.TestCase):
             data["sources"][0]["text"],
             post.call_args.kwargs["json"]["messages"][-1]["content"],
         )
+        self.assertIn(
+            "безпосередньо підтверджує",
+            post.call_args.kwargs["json"]["messages"][0]["content"],
+        )
+        self.assertEqual(post.call_args.kwargs["json"]["options"]["temperature"], 0.2)
 
     def test_quote_mode_and_ambiguous_refusal_without_generation(self):
         with (
@@ -163,7 +168,9 @@ class ApiTests(unittest.TestCase):
                     self.assertEqual(data["model"], main.MODEL)
                     self.assertEqual(data["answer"], "Дніпро.")
                     messages = post.call_args.kwargs["json"]["messages"]
-                    self.assertEqual(messages[0]["content"], main.UNGROUNDED_SYSTEM_PROMPT)
+                    self.assertEqual(
+                        messages[0]["content"], main.UNGROUNDED_SYSTEM_PROMPT
+                    )
                     self.assertEqual(messages[1]["content"], body["question"])
         self.assertEqual(post.call_count, len(requests_to_try))
 
@@ -180,6 +187,16 @@ class ApiTests(unittest.TestCase):
             invalid.json.return_value["done_reason"] = "length"
             with patch.object(main.requests, "post", return_value=invalid):
                 self.assertEqual(client.post("/chat", json=body).status_code, 502)
+            with patch.object(
+                main.requests, "post", return_value=self.model_response()
+            ) as post:
+                self.assertEqual(client.post("/chat", json=body).status_code, 200)
+                system_prompt = post.call_args.kwargs["json"]["messages"][0]["content"]
+                self.assertIn("максимум двома короткими реченнями", system_prompt)
+                self.assertIn(
+                    "не вигадуй цитат, частоти вживання, причин", system_prompt
+                )
+                self.assertIn("попроси назвати твір", system_prompt)
 
     def test_auto_routes_quotes_and_titles_to_the_appropriate_search(self):
         with (
@@ -205,9 +222,7 @@ class ApiTests(unittest.TestCase):
                     "/chat",
                     json={**body, "question": "Звідки «Дніпро брат мій висихає»?"},
                 )
-                general = client.post(
-                    "/chat", json={**body, "question": "Як справи?"}
-                )
+                general = client.post("/chat", json={**body, "question": "Як справи?"})
                 ambiguous = client.post(
                     "/chat",
                     json={**body, "question": "«Цей рядок існує у двох записах»"},
@@ -226,25 +241,82 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(ambiguous.json()["retrieval_status"], "ambiguous")
         self.assertEqual(ambiguous.json()["sources"], [])
 
+    def test_auto_lists_every_matching_word_occurrence_without_generation(self):
+        works: list[main.retrieval.Work] = [
+            {
+                "id": 10,
+                "title": "Перший твір",
+                "source": "https://example.org/10",
+                "text": "Жид живе.\nЗгадка жида.\nБез збігу.",
+            },
+            {
+                "id": 11,
+                "title": "Другий твір",
+                "source": "https://example.org/11",
+                "text": "Жиди, жидівською мовою.",
+            },
+        ]
+        with (
+            TestClient(main.app) as client,
+            patch.object(main.requests, "post") as post,
+        ):
+            client.app.state.corpus = works
+            client.app.state.chunks = main.retrieval.build_chunks(works)
+            body = {
+                "mode": "auto",
+                "retrieval_method": "hybrid",
+                "allow_ungrounded": True,
+            }
+            response = client.post(
+                "/chat",
+                json={
+                    **body,
+                    "question": 'Знайди всі місця у творах де зустрічається слово "жид"',
+                },
+            )
+            missing = client.post(
+                "/chat",
+                json={
+                    **body,
+                    "question": 'Знайди всі місця де зустрічається слово "відсутнє"',
+                },
+            )
+
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data["status"], "sources")
+        self.assertEqual(data["retrieval_status"], "term_matches")
+        self.assertIn("Збігів з основою «жид» у корпусі: 4", data["answer"])
+        self.assertIn("рядків з такими збігами: 3", data["answer"])
+        self.assertEqual(
+            [source["text"] for source in data["sources"]],
+            ["Жид живе.", "Згадка жида.", "Жиди, жидівською мовою."],
+        )
+        self.assertIsNone(data["model"])
+        self.assertEqual(missing.status_code, 200)
+        self.assertEqual(missing.json()["retrieval_status"], "term_not_found")
+        self.assertEqual(missing.json()["sources"], [])
+        post.assert_not_called()
+
     def test_auto_hybrid_failure_is_not_treated_as_missing_sources(self):
-        with TestClient(main.app) as client:
-            with (
-                patch.object(
-                    client.app.state.hybrid_search,
-                    "search",
-                    side_effect=requests.ConnectionError("unavailable"),
-                ),
-                patch.object(main, "generate_answer") as generate,
-            ):
-                response = client.post(
-                    "/chat",
-                    json={
-                        "mode": "auto",
-                        "question": "Яка річка у «Розритій могилі»?",
-                        "retrieval_method": "hybrid",
-                        "allow_ungrounded": True,
-                    },
-                )
+        with (
+            TestClient(main.app) as client,
+            patch.object(
+                client.app.state.hybrid_search,
+                "search",
+                side_effect=requests.ConnectionError("unavailable"),
+            ),
+            patch.object(main, "generate_answer") as generate,
+        ):
+            response = client.post(
+                "/chat",
+                json={
+                    "mode": "auto",
+                    "question": "Яка річка у «Розритій могилі»?",
+                    "retrieval_method": "hybrid",
+                    "allow_ungrounded": True,
+                },
+            )
         self.assertEqual(response.status_code, 502)
         generate.assert_not_called()
 

@@ -3,6 +3,7 @@
 import hashlib
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
@@ -23,26 +24,33 @@ OLLAMA_CHAT = "http://127.0.0.1:11434/api/chat"
 OPTIONS = {
     "num_ctx": 4096,
     "num_predict": 160,
-    "temperature": 0.7,
+    "temperature": 0.2,
     "top_p": 0.8,
     "top_k": 20,
     "seed": 42,
 }
 SYSTEM_PROMPT = (
     "Ти — ШІ-співрозмовник, натхненний Тарасом Шевченком, а не історична "
-    "особа. Відповідай українською стисло, лише за наведеними джерелами. "
-    "Якщо джерела не містять відповіді, скажи, що даних недостатньо. "
-    "Не вигадуй фактів чи цитат і не роби висновків про відсутність фактів "
-    "в усьому творі або корпусі."
+    "особа. Відповідай українською максимум двома короткими реченнями й "
+    "лише за наведеними джерелами. Якщо питають «про що твір», скажи, що "
+    "робить або просить ліричний герой, а не переказуй загальні теми. Додай "
+    "коротку дослівну цитату, яка безпосередньо підтверджує відповідь. Не "
+    "додавай біографічних дат, жанрових тверджень чи фактів, відсутніх у "
+    "фрагментах. Якщо фрагменти не відповідають, скажи про нестачу даних. "
+    "Не вигадуй цитат і не роби висновків про відсутність фактів в усьому "
+    "творі або корпусі."
 )
 UNGROUNDED_SYSTEM_PROMPT = (
     "Ти — ШІ-співрозмовник, натхненний Тарасом Шевченком, а не історична "
     "особа. Не називай себе людиною чи Шевченком і не приписуй собі "
-    "людських почуттів або досвіду. Відповідай українською стисло. "
-    "Джерел до цього запитання не "
-    "знайдено: не вигадуй цитат, фактів або особистих поглядів Шевченка. "
-    "Не узагальнюй щодо груп людей і не приписуй їм негативних рис. "
-    "Якщо не знаєш відповіді, чесно скажи про це."
+    "людських почуттів або досвіду. Відповідай українською максимум двома "
+    "короткими реченнями, до 45 слів. Джерел до цього запитання не знайдено: "
+    "не вигадуй цитат, частоти вживання, причин чи особистих поглядів "
+    "Шевченка. Якщо питають про частоту або причину вживання слова автором, "
+    "не стверджуй їх без джерел: скажи, що без назви твору це неможливо "
+    "перевірити, і попроси назвати твір. За потреби зазнач, що слово сьогодні "
+    "може сприйматися як образливе, не приписуючи цього авторові. Не "
+    "узагальнюй щодо груп людей. Якщо не знаєш відповіді, чесно скажи про це."
 )
 REFUSALS = {
     "no_quote": "Наведіть одну цитату в лапках.",
@@ -53,6 +61,11 @@ REFUSALS = {
     "no_relevant_chunk": "Не вдалося знайти відповідний фрагмент у доступному корпусі.",
 }
 logger = logging.getLogger(__name__)
+ALL_OCCURRENCES_REQUEST = re.compile(
+    r"\b(?:знайди|покажи|виведи|переліч)\b.*"
+    r"\b(?:всі|усі)\s+(?:місц\w*|випадк\w*|згадк\w*)\b.*\bслово\b",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 class ChatRequest(BaseModel):
@@ -94,6 +107,50 @@ class ChatResponse(BaseModel):
     sources: list[Source]
     model: str | None
     corpus_sha256: str
+
+
+def find_word_occurrences(
+    question: str, corpus: list[retrieval.Work]
+) -> tuple[str, int, list[Source]] | None:
+    if not ALL_OCCURRENCES_REQUEST.search(question):
+        return None
+
+    quotations = list(retrieval.QUOTE_RE.finditer(question))
+    if len(quotations) != 1:
+        return None
+    raw_term = next(
+        group for group in quotations[0].groups() if group is not None
+    ).strip()
+    terms = retrieval.QUOTE_WORD_RE.findall(raw_term)
+    if len(terms) != 1 or terms[0].casefold() != raw_term.casefold():
+        return None
+    term = terms[0].casefold()
+
+    occurrence_count = 0
+    places: dict[tuple[int, int, int], Source] = {}
+    for work in corpus:
+        text = work["text"]
+        for match in retrieval.TOKEN_RE.finditer(text):
+            if not match.group().casefold().startswith(term):
+                continue
+            occurrence_count += 1
+            start_char = text.rfind("\n", 0, match.start()) + 1
+            end_char = text.find("\n", match.end())
+            if end_char == -1:
+                end_char = len(text)
+            key = (work["id"], start_char, end_char)
+            places.setdefault(
+                key,
+                Source(
+                    id=work["id"],
+                    title=work["title"],
+                    url=work["source"],
+                    start_char=start_char,
+                    end_char=end_char,
+                    text=text[start_char:end_char].strip(),
+                ),
+            )
+    return term, occurrence_count, list(places.values())
 
 
 @asynccontextmanager
@@ -194,6 +251,30 @@ def generate_answer(
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(body: ChatRequest, request: Request) -> ChatResponse:
+    if body.mode == "auto":
+        occurrence_result = find_word_occurrences(
+            body.question, request.app.state.corpus
+        )
+        if occurrence_result is not None:
+            term, count, sources = occurrence_result
+            answer = (
+                f"Збігів з основою «{term}» у корпусі: {count}; "
+                f"рядків з такими збігами: {len(sources)}. "
+                "Нижче наведено місця з текстів; "
+                "сюди можуть входити словоформи й похідні слова."
+                if count
+                else f"У доступному корпусі не знайдено слова з основою «{term}»."
+            )
+            return ChatResponse(
+                status="sources",
+                retrieval_status="term_matches" if count else "term_not_found",
+                retrieval_method="lexical",
+                answer=answer,
+                sources=sources,
+                model=None,
+                corpus_sha256=request.app.state.corpus_sha256,
+            )
+
     mode: Literal["title", "quote"] = "title" if body.mode == "auto" else body.mode
     method = body.retrieval_method
     if body.mode == "auto":
