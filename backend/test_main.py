@@ -103,7 +103,11 @@ class ApiTests(unittest.TestCase):
             )
             refusal = client.post(
                 "/chat",
-                json={"mode": "quote", "question": "«Цей рядок існує у двох записах»"},
+                json={
+                    "mode": "quote",
+                    "question": "«Цей рядок існує у двох записах»",
+                    "allow_ungrounded": True,
+                },
             )
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json()["sources"][0]["id"], 1)
@@ -132,10 +136,19 @@ class ApiTests(unittest.TestCase):
             )
             response = client.post(
                 "/chat",
-                json={"question": "Про твір «Невідома назва»?", "mode": "title"},
+                json={
+                    "question": "Про твір «Невідома назва»?",
+                    "mode": "title",
+                    "allow_ungrounded": True,
+                },
             )
             no_fragment = client.post(
-                "/chat", json={"question": "«Розрита могила»", "mode": "title"}
+                "/chat",
+                json={
+                    "question": "«Розрита могила»",
+                    "mode": "title",
+                    "allow_ungrounded": True,
+                },
             )
         self.assertEqual(response.json()["retrieval_status"], "not_found")
         self.assertEqual(response.json()["status"], "refused")
@@ -143,12 +156,10 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(no_fragment.json()["status"], "refused")
         post.assert_not_called()
 
-    def test_opt_in_generates_without_sources_for_missing_or_ambiguous_results(self):
+    def test_opt_in_generates_for_general_and_word_definition_questions(self):
         requests_to_try = [
             {"mode": "title", "question": "Як справи?"},
-            {"mode": "title", "question": "«Розрита могила»"},
-            {"mode": "quote", "question": "«Цей рядок існує у двох записах»"},
-            {"mode": "quote", "question": "«Дніпро»"},
+            {"mode": "auto", "question": "Що означає слово «воля»?"},
         ]
         with (
             TestClient(main.app) as client,
@@ -173,6 +184,33 @@ class ApiTests(unittest.TestCase):
                     )
                     self.assertEqual(messages[1]["content"], body["question"])
         self.assertEqual(post.call_count, len(requests_to_try))
+
+    def test_auto_does_not_generate_for_unmatched_or_ambiguous_quoted_sources(self):
+        requests_to_try = [
+            "Що відбувається у «Невідома назва»?",
+            "У якому творі є «ця довга цитата відсутня в корпусі»?",
+            "«Цей рядок існує у двох записах»",
+        ]
+        with (
+            TestClient(main.app) as client,
+            patch.object(main.requests, "post") as post,
+        ):
+            for question in requests_to_try:
+                with self.subTest(question=question):
+                    response = client.post(
+                        "/chat",
+                        json={
+                            "mode": "auto",
+                            "question": question,
+                            "allow_ungrounded": True,
+                        },
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    data = response.json()
+                    self.assertEqual(data["status"], "refused")
+                    self.assertEqual(data["sources"], [])
+                    self.assertIsNone(data["model"])
+        post.assert_not_called()
 
     def test_ungrounded_fallback_respects_sources_mode_and_ollama_errors(self):
         body = {"mode": "title", "question": "Як справи?", "allow_ungrounded": True}
@@ -237,9 +275,10 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(quote.json()["sources"][0]["id"], 1)
         self.assertEqual(general.json()["status"], "ungrounded")
         self.assertEqual(general.json()["sources"], [])
-        self.assertEqual(ambiguous.json()["status"], "ungrounded")
+        self.assertEqual(ambiguous.json()["status"], "refused")
         self.assertEqual(ambiguous.json()["retrieval_status"], "ambiguous")
         self.assertEqual(ambiguous.json()["sources"], [])
+        self.assertIsNone(ambiguous.json()["model"])
 
     def test_auto_lists_every_matching_word_occurrence_without_generation(self):
         works: list[main.retrieval.Work] = [

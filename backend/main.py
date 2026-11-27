@@ -67,6 +67,11 @@ ALL_OCCURRENCES_REQUEST = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 WORD_AFTER_LABEL = re.compile(r"\bслово\s+([^\W_]+)", re.IGNORECASE)
+WORD_DEFINITION_QUERY = re.compile(
+    r"\b(?:що\s+таке|що\s+означає|що\s+значить|значенн\w*|"
+    r"визначенн\w*|поясни(?:ти)?\s+слово)\b",
+    re.IGNORECASE,
+)
 
 
 class ChatRequest(BaseModel):
@@ -108,6 +113,26 @@ class ChatResponse(BaseModel):
     sources: list[Source]
     model: str | None
     corpus_sha256: str
+
+
+def should_generate_ungrounded(body: ChatRequest) -> bool:
+    if not body.allow_ungrounded or body.mode == "quote":
+        return False
+
+    quotations = list(retrieval.QUOTE_RE.finditer(body.question))
+    if not quotations:
+        return True
+
+    if len(quotations) == 1:
+        quoted_text = next(
+            group for group in quotations[0].groups() if group is not None
+        )
+        return (
+            len(retrieval.QUOTE_WORD_RE.findall(quoted_text)) == 1
+            and WORD_DEFINITION_QUERY.search(body.question) is not None
+        )
+
+    return False
 
 
 def find_word_occurrences(
@@ -311,7 +336,7 @@ def chat(body: ChatRequest, request: Request) -> ChatResponse:
             request.app.state.hybrid_search,
         )
     if not hits:
-        if body.answer_mode == "generated" and body.allow_ungrounded:
+        if body.answer_mode == "generated" and should_generate_ungrounded(body):
             return ChatResponse(
                 status="ungrounded",
                 retrieval_status=status,

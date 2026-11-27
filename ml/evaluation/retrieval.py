@@ -175,23 +175,29 @@ def title_pattern(title: str) -> str:
     normalized = normalize(title)
     if normalized in TITLE_PATTERN_EXCEPTIONS:
         return TITLE_PATTERN_EXCEPTIONS[normalized]
-    if " " not in normalized and len(normalized) >= 5:
-        if normalized.endswith("а"):
-            if normalized.endswith("ка"):
+    return r"\s+".join(
+        f"(?:{_title_word_pattern(word)})" for word in normalized.split()
+    )
+
+
+def _title_word_pattern(word: str) -> str:
+    if len(word) >= 4:
+        if word.endswith("а"):
+            if word.endswith("ка"):
                 return (
-                    re.escape(normalized[:-1])
+                    re.escape(word[:-1])
                     + r"(?:а|и|і|у|ою)|"
-                    + re.escape(normalized[:-2])
+                    + re.escape(word[:-2])
                     + r"ці"
                 )
-            return re.escape(normalized[:-1]) + r"(?:а|и|і|у|ою)"
-        if normalized.endswith("я"):
-            return re.escape(normalized[:-1]) + r"(?:я|і|ю|єю)"
-        if normalized.endswith("и"):
-            return re.escape(normalized[:-1]) + r"(?:и|ів|ам|ами|ах)"
-        if normalized[-1] not in "еєиіїоую":
-            return re.escape(normalized) + r"(?:а|у|ом|ові|і)?"
-    return re.escape(normalized)
+            return re.escape(word[:-1]) + r"(?:а|и|і|у|ою|ої|ій)"
+        if word.endswith("я"):
+            return re.escape(word[:-1]) + r"(?:я|і|ї|ю|ею|єю)"
+        if word.endswith("и"):
+            return re.escape(word[:-1]) + r"(?:и|ів|ам|ами|ах)"
+        if word[-1] not in "еєиіїоую":
+            return re.escape(word) + r"(?:а|у|ом|ові|і)?"
+    return re.escape(word)
 
 
 def find_work(query: str, corpus: list[Work]) -> tuple[str, Work | None]:

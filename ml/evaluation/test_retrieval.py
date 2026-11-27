@@ -135,6 +135,34 @@ class RetrievalTests(unittest.TestCase):
             ("not_found", None),
         )
 
+    def test_common_inflected_title_forms_match_in_quoted_and_plain_queries(self):
+        corpus = [
+            work(1, "Іван Підкова"),
+            work(2, "Лілея"),
+            work(3, "Москалева криниця"),
+            work(4, "Чума"),
+        ]
+        cases = [
+            ("Івані Підкові", 1),
+            ("Лілеї", 2),
+            ("Москалевій криниці", 3),
+            ("Чумі", 4),
+        ]
+        for title, expected_id in cases:
+            for query in (
+                f"Що відбувається у «{title}»?",
+                f"Що відбувається у {title}?",
+            ):
+                with self.subTest(query=query):
+                    status, result = retrieval.find_work(query, corpus)
+                    self.assertEqual(status, "matched")
+                    assert result is not None
+                    self.assertEqual(result["id"], expected_id)
+        self.assertEqual(
+            retrieval.find_work("Що відбувається у «Івані Підкові історія»?", corpus),
+            ("not_found", None),
+        )
+
     def test_quoted_titles_and_unrelated_quotation_remain_independent(self):
         corpus = [work(1, "Заповіт"), work(2, "Наймичка")]
         status, result = retrieval.find_work(
